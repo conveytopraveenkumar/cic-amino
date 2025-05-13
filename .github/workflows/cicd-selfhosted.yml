@@ -20,11 +20,11 @@ jobs:
         id: start-ec2
         run: |
           INSTANCE_ID=$(aws ec2 run-instances \
-            --image-id YOUR-AMI-ID \
+            --image-id ami-0f9de6e2d2f067fca \
             --instance-type t3.micro \
-            --security-group-ids YOUR-SECURITY-GROUP \
-            --subnet-id YOUR-SUBNET-ID \
-            --key-name YOUR-KEY-NAME \
+            --security-group-ids sg-04b81fc613de74b2a \
+            --subnet-id subnet-089b826030629808d \
+            --key-name new-key \
             --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner}]' \
             --user-data "#!/bin/bash
             sudo apt update && sudo apt install -y unzip git curl jq
