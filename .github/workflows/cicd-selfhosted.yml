@@ -18,11 +18,12 @@ jobs:
       - name: Launch EC2 Instance
         id: start-ec2
         run: |
+          SUBNET_ID=$(aws ec2 describe-subnets --query 'Subnets[0].SubnetId' --output text)
           INSTANCE_ID=$(aws ec2 run-instances \
             --image-id ami-0f9de6e2d2f067fca \
             --instance-type t3.micro \
             --security-group-ids sg-04b81fc613de74b2a \
-            --subnet-id subnet-089b826030629808d \
+            --subnet-id $SUBNET_ID \
             --key-name new-key \
              --associate-public-ip-address \
             --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner}]" \
@@ -72,9 +73,7 @@ jobs:
 
       - name: Install GitHub Runner on EC2
         run: |
-          #PUBLIC_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --region us-east-1 --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
-          echo "Public IP: $INSTANCE_IP"
-          ssh -o StrictHostKeyChecking=no -i private-key.pem ubuntu@$INSTANCE_IP "export RUNNER_TOKEN=$RUNNER_TOKEN && bash -s" << 'EOF'
+         ssh -i private-key.pem -o StrictHostKeyChecking=no ubuntu@${INSTANCE_IP} "export RUNNER_TOKEN=$RUNNER_TOKEN && bash -s" << 'EOF'
             sudo apt update && sudo apt install -y unzip git curl jq
             mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner
             sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
