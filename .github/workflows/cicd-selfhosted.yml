@@ -24,6 +24,7 @@ jobs:
             --security-group-ids sg-04b81fc613de74b2a \
             --subnet-id subnet-089b826030629808d \
             --key-name new-key \
+             --associate-public-ip-address \
             --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner}]" \
             --query "Instances[0].InstanceId" --output text)
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
