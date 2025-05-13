@@ -46,6 +46,9 @@ jobs:
             # Register runner with GitHub
             ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token AWAHMCCW4FY6ADE4OM5QFF3IEMADM
             ./run.sh || { echo "Runner execution failed!"; exit 1; }
+            # Start the runner
+            ./svc.sh install
+            ./svc.sh start" \
             --query "Instances[0].InstanceId" --output text)
           
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
