@@ -64,7 +64,8 @@ jobs:
           RUNNER_TOKEN=$(curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_PAT }}" \
           -H "Accept: application/vnd.github+json" \
           https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/registration-token | jq -r '.token')
-          echo "RUNNERS_TOKEN=$RUNNER_TOKEN" >> $GITHUB_ENV
+          echo "RUNNER_TOKEN=$RUNNER_TOKEN" >> $GITHUB_ENV
+
       - name: Install GitHub Runner on EC2
         run: |
           PUBLIC_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --region us-east-1 --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
@@ -76,7 +77,7 @@ jobs:
             sudo chmod -R 755 /home/ubuntu/actions-runner
             curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
             tar xzf ./actions-runner-linux-x64.tar.gz
-            ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token $RUNNERS_TOKEN
+            ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token $RUNNER_TOKEN
           
             nohup ./run.sh > runner.log 2>&1 &
           EOF
