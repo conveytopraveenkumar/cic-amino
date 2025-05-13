@@ -82,7 +82,7 @@ jobs:
             echo "Using Token: $RUNNER_TOKEN"
             ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino \
             --token $RUNNER_TOKEN \
-            --name "AWS-Self-Hosted" \
+            --name "AWS-Self-Hosted1" \
             --labels aws,ec2,linux \
             --work /home/ubuntu/runner_work \
             --runnergroup Default
