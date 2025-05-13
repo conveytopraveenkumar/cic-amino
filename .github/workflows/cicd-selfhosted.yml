@@ -28,30 +28,32 @@ jobs:
             --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner}]" \
             --user-data "#!/bin/bash
             sudo apt update && sudo apt install -y unzip git curl jq
-            
+      
             # Create runner directory
-            cd /home/ubuntu
-            mkdir -p actions-runner && cd actions-runner
-            
-            # Download GitHub Actions Runner
-            curl -o actions-runner-linux-x64-2.323.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
-            
-            # Optional: Validate the hash
-            echo '0dbc9bf5a58620fc52cb6cc0448abcca964a8d74b5f39773b7afcad9ab691e19  actions-runner-linux-x64-2.323.0.tar.gz' | shasum -a 256 -c
-            
-            # Extract the installer
-            tar xzf ./actions-runner-linux-x64-2.323.0.tar.gz
+            mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner
             sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
             sudo chmod -R 755 /home/ubuntu/actions-runner
+            # Download GitHub Actions Runner
+            curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
+      
+            # Validate the hash
+            echo '0dbc9bf5a58620fc52cb6cc0448abcca964a8d74b5f39773b7afcad9ab691e19  actions-runner-linux-x64.tar.gz' | sha256sum -c
+      
+            # Extract the installer
+            tar xzf ./actions-runner-linux-x64.tar.gz
+            
+      
             # Register runner with GitHub
             ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token AWAHMCCW4FY6ADE4OM5QFF3IEMADM
-            ./run.sh || { echo "Runner execution failed!"; exit 1; }
+      
             # Start the runner
+            ./run.sh || { echo 'Runner execution failed!'; exit 1; }
             ./svc.sh install
             ./svc.sh start" \
             --query "Instances[0].InstanceId" --output text)
-          
+      
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+
 
 
       - name: Wait for EC2 Instance to Start
