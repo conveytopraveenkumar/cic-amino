@@ -62,10 +62,17 @@ jobs:
         run: |
           echo "${{ secrets.AWS_SSH_PRIVATE_KEY }}" > private-key.pem
           chmod 600 private-key.pem
+      - name: Fetch GitHub Runner Token Dynamically
+        id: get-token
+        run: |
+          RUNNER_TOKEN=$(curl -X POST -H "Authorization: Bearer ${{ secrets.SELF_HOSTED_PAT }}" \
+          -H "Accept: application/vnd.github+json" \
+          https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/registration-token | jq -r '.token')
+          echo "RUNNER_TOKEN=$RUNNER_TOKEN" >> $GITHUB_ENV
 
       - name: Setup and Configure GitHub Runner on EC2
         run: |
-          ssh -i private-key.pem -o StrictHostKeyChecking=no ubuntu@${INSTANCE_IP} "bash -s" << 'EOF'
+          ssh -i private-key.pem -o StrictHostKeyChecking=no ubuntu@${INSTANCE_IP} "export RUNNER_TOKEN=$RUNNER_TOKEN && bash -s" << 'EOF'
           sudo apt update && sudo apt install -y unzip git curl jq awscli
             mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner
             sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
