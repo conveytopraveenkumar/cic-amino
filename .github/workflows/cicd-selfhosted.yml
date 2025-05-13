@@ -41,13 +41,11 @@ jobs:
             
             # Extract the installer
             tar xzf ./actions-runner-linux-x64-2.323.0.tar.gz
-            
+            sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
+            sudo chmod -R 755 /home/ubuntu/actions-runner
             # Register runner with GitHub
             ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token AWAHMCCW4FY6ADE4OM5QFF3IEMADM
-            
-            # Start the runner
-            ./svc.sh install
-            ./svc.sh start" \
+            ./run.sh || { echo "Runner execution failed!"; exit 1; }
             --query "Instances[0].InstanceId" --output text)
           
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
