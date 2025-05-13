@@ -83,7 +83,8 @@ jobs:
             --token $RUNNER_TOKEN \
             --name "AWS-Self-Hosted" \
             --labels aws,ec2,linux \
-            --work /home/ubuntu/runner_work
+            --work /home/ubuntu/runner_work \
+            --runnergroup 
             nohup ./run.sh > runner.log 2>&1 &
           EOF
   run-on-self-hosted:
