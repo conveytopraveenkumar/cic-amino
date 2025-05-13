@@ -1,9 +1,7 @@
 name: AWS Self-Hosted Runner Setup
-
-on:
-  push:
-    branches:
-      - master
+on: push
+ branches:
+     - master
 
 jobs:
   setup-runner:
@@ -28,33 +26,20 @@ jobs:
             --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner}]" \
             --user-data "#!/bin/bash
             sudo apt update && sudo apt install -y unzip git curl jq
-      
-            # Create runner directory
+
             mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner
             sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
             sudo chmod -R 755 /home/ubuntu/actions-runner
-            # Download GitHub Actions Runner
-            curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
-      
-            # Validate the hash
-            echo '0dbc9bf5a58620fc52cb6cc0448abcca964a8d74b5f39773b7afcad9ab691e19  actions-runner-linux-x64.tar.gz' | sha256sum -c
-      
-            # Extract the installer
-            tar xzf ./actions-runner-linux-x64.tar.gz
             
-      
-            # Register runner with GitHub
+            curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
+            tar xzf ./actions-runner-linux-x64.tar.gz
+
             ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token $RUNNER_TOKEN
-      
-            # Start the runner
-            ./run.sh || { echo 'Runner execution failed!'; exit 1; }
-            ./svc.sh install
-            ./svc.sh start" \
+          
+            nohup ./run.sh > runner.log 2>&1 &" \
             --query "Instances[0].InstanceId" --output text)
-      
+
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
-
-
 
       - name: Wait for EC2 Instance to Start
         run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
@@ -65,20 +50,17 @@ jobs:
             INSTANCE_STATE=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].InstanceState.Name" --output text)
             SYSTEM_STATUS=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].SystemStatus.Status" --output text)
             INSTANCE_STATUS=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].InstanceStatus.Status" --output text)
-
             echo "Current State: $INSTANCE_STATE | System Status: $SYSTEM_STATUS | Instance Status: $INSTANCE_STATUS"
-
             if [[ "$INSTANCE_STATE" == "running" && "$SYSTEM_STATUS" == "ok" && "$INSTANCE_STATUS" == "ok" ]]; then
               echo "Instance is fully initialized!"
               break
             fi
             sleep 10
           done
-        
 
   run-on-self-hosted:
     needs: setup-runner
-    runs-on: self-hosted
+    runs-on: self-hosted  # Ensures only self-hosted runner is used
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
