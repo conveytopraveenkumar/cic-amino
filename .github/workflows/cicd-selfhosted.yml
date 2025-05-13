@@ -1,97 +1,76 @@
-name: AWS Self-Hosted Runner Setup
+name: do-the-job
 on:
   push:
     branches:
       - master
+
 jobs:
-  setup-runner:
+  start-runner:
+    name: Start self-hosted EC2 runner
     runs-on: ubuntu-latest
+    outputs:
+      label: ${{ steps.start-ec2-runner.outputs.label }}
+      ec2-instance-id: ${{ steps.start-ec2-runner.outputs.ec2-instance-id }}
     steps:
-      - name: Configure AWS Credentials
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Launch EC2 Instance
-        id: start-ec2
-        run: |
-          INSTANCE_ID=$(aws ec2 run-instances \
-            --image-id ami-0f9de6e2d2f067fca \
-            --instance-type t3.micro \
-            --security-group-ids sg-04b81fc613de74b2a \
-            --subnet-id subnet-089b826030629808d \
-            --key-name new-key \
-            --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner}]" \
-            --query "Instances[0].InstanceId" --output text)
-
-          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
-
-      - name: Wait for EC2 Instance to Start
-        run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
-
-      - name: Ensure EC2 Instance Is Fully Initialized
-        run: |
-          while true; do
-            INSTANCE_STATE=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].InstanceState.Name" --output text)
-            SYSTEM_STATUS=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].SystemStatus.Status" --output text)
-            INSTANCE_STATUS=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].InstanceStatus.Status" --output text)
-            echo "Current State: $INSTANCE_STATE | System Status: $SYSTEM_STATUS | Instance Status: $INSTANCE_STATUS"
-            if [[ "$INSTANCE_STATE" == "running" && "$SYSTEM_STATUS" == "ok" && "$INSTANCE_STATUS" == "ok" ]]; then
-              echo "Instance is fully initialized!"
-              break
-            fi
-            sleep 10
-          done
-  
-  install-runner:
-    needs: setup-runner
-    runs-on: ubuntu-latest
-    steps:
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Start EC2 runner
+        id: start-ec2-runner
+        uses: ec2-github-runner@v1  # Your self-hosted EC2 runner action
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-      - name: Setup SSH Key for EC2 Access
-        run: |
-          echo "${{ secrets.AWS_SSH_PRIVATE_KEY }}" > private-key.pem
-          chmod 600 private-key.pem
-          
-      - name: Install GitHub Runner on EC2
-        run: |
-          PUBLIC_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --region us-east-1 --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
-          echo "Public IP: $PUBLIC_IP"
+          mode: start  # Ensures the EC2 runner is launched properly
+          github-token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          ec2-image-id: ami-0f9de6e2d2f067fca
+          ec2-instance-type: t3.micro
+          subnet-id: subnet-089b826030629808d
+          security-group-id: sg-04b81fc613de74b2a
+          key-name: new-key
+          aws-resource-tags: >
+            [
+              {"Key": "Name", "Value": "ec2-github-runner"},
+              {"Key": "GitHubRepository", "Value": "${{ github.repository }}"}
+            ]
 
-          ssh -o StrictHostKeyChecking=no -i private-key.pem ubuntu@$PUBLIC_IP << 'EOF'
-            sudo apt update && sudo apt install -y unzip git curl jq
-
-            mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner
-            sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
-            sudo chmod -R 755 /home/ubuntu/actions-runner
-
-            curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
-            tar xzf ./actions-runner-linux-x64.tar.gz
-
-            ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token $RUNNER_TOKEN
-          
-            nohup ./run.sh > runner.log 2>&1 &
-          EOF
-
-  run-on-self-hosted:
-    needs: install-runner
-    runs-on: self-hosted  # Forces only self-hosted runner usage
+  do-the-job:
+    name: Execute tasks on EC2 self-hosted runner
+    needs: start-runner
+    runs-on: ${{ needs.start-runner.outputs.label }}  # Runs on the newly created EC2 runner
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+        with:
+          repository: conveytopraveenkumar/cic-amino
 
-      - name: Build Project
+      - name: Run Test Command
         run: |
-          echo "Running build on self-hosted runner..."
+          echo "Running job on self-hosted EC2 runner!"
           mkdir -p /home/ubuntu/build-output
-          echo "Build successful!" > /home/ubuntu/build-output/result.txt
+          echo "Job completed successfully!" > /home/ubuntu/build-output/result.txt
 
-      - name: Stop EC2 Instance
-        run: aws ec2 stop-instances --instance-ids $INSTANCE_ID
+  stop-runner:
+    name: Stop self-hosted EC2 runner
+    needs:
+      - start-runner
+      - do-the-job
+    runs-on: ubuntu-latest
+    if: ${{ always() }}  # Ensures the runner stops even if the job fails
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Stop EC2 runner
+        uses: ec2-github-runner@v1
+        with:
+          mode: stop  # Ensures the EC2 runner is properly stopped
+          github-token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          label: ${{ needs.start-runner.outputs.label }}
+          ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id }}
