@@ -49,6 +49,7 @@ jobs:
               ./svc.sh install
               ./svc.sh start' \
               --query "Instances[0].InstanceId" --output text
+            echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
 
       - name: Wait for EC2 Instance to Start
         run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
