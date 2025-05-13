@@ -44,17 +44,22 @@ jobs:
             fi
             sleep 10
           done
-
+  
   install-runner:
     needs: setup-runner
     runs-on: ubuntu-latest
     steps:
+      - name: Setup SSH Key for EC2 Access
+        run: |
+          echo "${{ secrets.AWS_SSH_PRIVATE_KEY }}" > private-key.pem
+          chmod 600 private-key.pem
+          
       - name: Install GitHub Runner on EC2
         run: |
-          PUBLIC_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+          PUBLIC_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --region us-east-1 --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
           echo "Public IP: $PUBLIC_IP"
 
-          ssh -o StrictHostKeyChecking=no -i new-key.pem ubuntu@$PUBLIC_IP << 'EOF'
+          ssh -o StrictHostKeyChecking=no -i private-key.pem ubuntu@$PUBLIC_IP << 'EOF'
             sudo apt update && sudo apt install -y unzip git curl jq
 
             mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner
