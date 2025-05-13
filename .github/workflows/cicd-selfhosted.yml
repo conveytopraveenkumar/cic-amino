@@ -79,7 +79,11 @@ jobs:
             curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
             tar xzf ./actions-runner-linux-x64.tar.gz
             echo "Using Token: $RUNNER_TOKEN"
-            ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token $RUNNER_TOKEN
+            ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino \
+            --token $RUNNER_TOKEN \
+            --name "AWS-Self-Hosted" \
+            --labels aws,ec2,linux \
+            --work /home/ubuntu/runner_work
             nohup ./run.sh > runner.log 2>&1 &
           EOF
   run-on-self-hosted:
