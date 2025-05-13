@@ -44,7 +44,7 @@ jobs:
             
       
             # Register runner with GitHub
-            ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token AWAHMCCW4FY6ADE4OM5QFF3IEMADM
+            ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token $RUNNER_TOKEN
       
             # Start the runner
             ./run.sh || { echo 'Runner execution failed!'; exit 1; }
