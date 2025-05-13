@@ -1,7 +1,9 @@
 name: AWS Self-Hosted Runner Setup
-on: push
- branches:
-     - master
+
+on:
+  push:
+    branches:
+      - master
 
 jobs:
   setup-runner:
