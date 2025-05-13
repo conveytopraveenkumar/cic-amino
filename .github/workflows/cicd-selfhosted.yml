@@ -72,7 +72,7 @@ jobs:
               "sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner",
               "sudo chmod -R 755 /home/ubuntu/actions-runner",
       
-              "./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token AWAHMCFE4Q54UGKIZIO6BWTIELWPC|| { echo \"Runner config failed!\"; exit 1; }",
+              "./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token $RUNNER_TOKEN || { echo \"Runner config failed!\"; exit 1; }",
               
               "./run.sh || { echo \"Runner execution failed!\"; exit 1; }"
             ]}' \
