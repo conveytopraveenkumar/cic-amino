@@ -18,18 +18,14 @@ jobs:
       - name: Launch EC2 Instance
         id: start-ec2
         run: |
-          SUBNET_ID=$(aws ec2 describe-subnets --query 'Subnets[0].SubnetId' --output text)
           INSTANCE_ID=$(aws ec2 run-instances \
             --image-id ami-0f9de6e2d2f067fca \
             --instance-type t3.micro \
             --security-group-ids sg-04b81fc613de74b2a \
-            --subnet-id $SUBNET_ID \
+            --subnet-id subnet-089b826030629808d \
             --key-name new-key \
-             --associate-public-ip-address \
             --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner}]" \
             --query "Instances[0].InstanceId" --output text)
-          INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
-          echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
       - name: Wait for EC2 Instance to Start
         run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
@@ -69,11 +65,11 @@ jobs:
           -H "Accept: application/vnd.github+json" \
           https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/registration-token | jq -r '.token')
           echo "RUNNER_TOKEN=$RUNNER_TOKEN" >> $GITHUB_ENV
-
-
       - name: Install GitHub Runner on EC2
         run: |
-         ssh -i private-key.pem -o StrictHostKeyChecking=no ubuntu@${INSTANCE_IP} "export RUNNER_TOKEN=$RUNNER_TOKEN && bash -s" << 'EOF'
+          PUBLIC_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --region us-east-1 --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+          echo "Public IP: $PUBLIC_IP"
+          ssh -o StrictHostKeyChecking=no -i private-key.pem ubuntu@$PUBLIC_IP "export RUNNER_TOKEN=$RUNNER_TOKEN && bash -s" << 'EOF'
             sudo apt update && sudo apt install -y unzip git curl jq
             mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner
             sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
@@ -83,7 +79,7 @@ jobs:
             echo "Using Token: $RUNNER_TOKEN"
             ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino \
             --token $RUNNER_TOKEN \
-            --name "AWS-Self-Hosted-1" \
+            --name "AWS-Self-Hosted" \
             --labels aws,ec2,linux \
             --work /home/ubuntu/runner_work \
             --runnergroup Default
@@ -101,5 +97,5 @@ jobs:
           echo "Running build on self-hosted runner..."
           mkdir -p /home/ubuntu/build-output
           echo "Build successful!" > /home/ubuntu/build-output/result.txt
-      # - name: Stop EC2 Instance
-      #   run: aws ec2 stop-instances --instance-ids $INSTANCE_ID
+      - name: Stop EC2 Instance
+        run: aws ec2 stop-instances --instance-ids $INSTANCE_ID
