@@ -21,7 +21,7 @@ jobs:
 
       - name: Start EC2 runner
         id: start-ec2-runner
-        uses: conveytopraveenkumar/cic-amino/ec2-github-runner@v1
+        uses: conveytopraveenkumar/ec2-github-runner@v1
         with:
           mode: start  # Ensures the EC2 runner is launched properly
           github-token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
