@@ -9,9 +9,10 @@ jobs:
   setup-AWS-host-runner:
     runs-on: ubuntu-latest
     outputs:
-     runner_name: ${{ steps.set-runner-name.outputs.runner_name }}
+      instance_ip: ${{ steps.set-instance.outputs.instance_ip }}
+      instance_id: ${{ steps.set-instance.outputs.instance_id }}
+      runner_name: ${{ steps.set-runner-name.outputs.runner_name }}
     steps:
-
       - name: Configure AWS Credentials
         run: |
           aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -24,7 +25,14 @@ jobs:
           unzip awscliv2.zip
           sudo ./aws/install --update
           aws --version
-
+          
+      - name: Generate Dynamic Runner Name
+        id: set-runner-name
+        run: |
+          RUNNER_NAME="self-hosted-runner-$(date +%Y%m%d%H%M%S)"
+          echo "RUNNER_NAME=$RUNNER_NAME" >> $GITHUB_ENV
+          echo "runner_name=$RUNNER_NAME" >> $GITHUB_OUTPUT
+          
       - name: Launch EC2 Instance for Runner
         id: start-ec2
         run: |
@@ -41,6 +49,8 @@ jobs:
           INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
           echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+          echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
 
       - name: Wait for EC2 Instance to Start
         run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
@@ -70,12 +80,7 @@ jobs:
           -H "Accept: application/vnd.github+json" \
           https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/registration-token | jq -r '.token')
           echo "RUNNER_TOKEN=$RUNNER_TOKEN" >> $GITHUB_ENV
-      - name: Generate Dynamic Runner Name
-        run: |
-          RUNNER_NAME="self-hosted-runner-$(date +%Y%m%d%H%M%S)"
-          echo "RUNNER_NAME=$RUNNER_NAME" >> $GITHUB_ENV
-          echo "runner_name=$RUNNER_NAME" >> $GITHUB_OUTPUT
-
+          
       - name: Setup and Configure GitHub Runner on EC2
         run: |
           ssh -i private-key.pem -o StrictHostKeyChecking=no ubuntu@${INSTANCE_IP} << EOF
@@ -101,6 +106,9 @@ jobs:
     needs: setup-AWS-host-runner
     runs-on: ${{ needs.setup-AWS-host-runner.outputs.runner_name }}
     steps:
+      - name: Debug Runner Name
+        run: |
+          echo "Using Runner Name: ${{ needs.setup-AWS-host-runner.outputs.runner_name }}"
       - name: Checkout Repository
         uses: actions/checkout@v3
       - name: Configure AWS Credentials
@@ -242,3 +250,24 @@ jobs:
               done
             "
           EOF
+      - name: Remove Self-Hosted Runner from GitHub
+        run: |
+          RUNNER_ID=$(curl -X GET -H "Authorization: Bearer ${{ secrets.SELF_HOSTED_PAT }}" \
+          -H "Accept: application/vnd.github+json" \
+          https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners | jq -r '.runners[] | select(.name=="${{ needs.setup-AWS-host-runner.outputs.runner_name }}") | .id')
+
+          if [[ -n "$RUNNER_ID" ]]; then
+            curl -X DELETE -H "Authorization: Bearer ${{ secrets.SELF_HOSTED_PAT }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/$RUNNER_ID
+            echo "✅ Self-hosted runner removed from GitHub!"
+          else
+            echo "⚠️ Runner not found, skipping removal."
+          fi
+
+      - name: Terminate EC2 Instance
+        run: |
+          echo "Terminating EC2 instance..."
+          aws ec2 terminate-instances --instance-ids ${{ needs.setup-AWS-host-runner.outputs.instance_id }}
+          aws ec2 wait instance-terminated --instance-ids ${{ needs.setup-AWS-host-runner.outputs.instance_id }}
+          echo "✅ EC2 instance terminated successfully!"
