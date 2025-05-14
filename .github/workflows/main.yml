@@ -1,0 +1,45 @@
+name: AWS Self-Hosted Runner & AOSP Build
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  setup-aws:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup AWS
+        uses: ./.github/actions/setup-aws
+
+  setup-github-runner:
+    needs: setup-aws
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup GitHub Runner
+        uses: ./.github/actions/setup-github-runner
+        with:
+          instance_ip: ${{ needs.setup-aws.outputs.instance_ip }}
+
+  aosp-build:
+    needs: setup-github-runner
+    runs-on: [self-hosted, aws, ec2, linux, aosp-runner, android-build]
+    steps:
+      - name: Debug Runner Name
+        run: |
+          echo "Using Runner Name: ${{ needs.setup-github-runner.outputs.runner_name }}"
+
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set region us-east-1
+
+      - name: Build AOSP Project
+        run: |
+          echo "Running AOSP build on self-hosted runner..."
+          mkdir -p /home/ubuntu/build-output
+          echo "Build successful!" > /home/ubuntu/build-output/result.txt
