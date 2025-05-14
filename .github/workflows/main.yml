@@ -9,6 +9,9 @@ jobs:
   setup-aws:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        
       - name: Setup AWS
         uses: ./.github/actions/setup-aws
 
