@@ -95,7 +95,7 @@ jobs:
             ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino \
             --token "${{ env.RUNNER_TOKEN }}" \
             --name "${{ env.RUNNER_NAME }}" \
-            --labels aws,ec2,linux \
+            --labels aws,ec2,linux,aosp-runner,android-build \
             --work /home/ubuntu/runner_work \
             --runnergroup Default
 
@@ -104,11 +104,11 @@ jobs:
 
   Compilation-on-self-hosted:
     needs: setup-AWS-host-runner
-    runs-on: ${{ needs.setup-AWS-host-runner.outputs.runner_name }}
+    runs-on: [self-hosted, aws, ec2, linux, aosp-runner, android-build]
     steps:
       - name: Debug Runner Name
         run: |
-          echo "Using Runner Name: ${{ needs.setup-AWS-host-runner.outputs.runner_name }}"
+          echo "Using Runner Name: ${{ runner.name }}"
       - name: Checkout Repository
         uses: actions/checkout@v3
       - name: Configure AWS Credentials
