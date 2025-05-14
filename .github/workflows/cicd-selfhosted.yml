@@ -9,9 +9,7 @@ jobs:
   setup-AWS-host-runner:
     runs-on: ubuntu-latest
     outputs:
-      instance_ip: ${{ env.INSTANCE_IP }}
-      instance_id: ${{ env.INSTANCE_ID }}
-      runner_name: ${{ env.RUNNER_NAME }}
+     runner_name: ${{ steps.set-runner-name.outputs.runner_name }}
     steps:
 
       - name: Configure AWS Credentials
@@ -76,6 +74,7 @@ jobs:
         run: |
           RUNNER_NAME="self-hosted-runner-$(date +%Y%m%d%H%M%S)"
           echo "RUNNER_NAME=$RUNNER_NAME" >> $GITHUB_ENV
+          echo "runner_name=$RUNNER_NAME" >> $GITHUB_OUTPUT
 
       - name: Setup and Configure GitHub Runner on EC2
         run: |
@@ -100,7 +99,7 @@ jobs:
 
   Compilation-on-self-hosted:
     needs: setup-AWS-host-runner
-    runs-on: ${{ needs.setup-runner.outputs.runner_name }}
+    runs-on: ${{ needs.setup-AWS-host-runner.outputs.runner_name }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
