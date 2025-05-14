@@ -81,6 +81,23 @@ jobs:
           https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/registration-token | jq -r '.token')
           echo "RUNNER_TOKEN=$RUNNER_TOKEN" >> $GITHUB_ENV
           
+      - name: Remove Existing Self-Hosted Runners (Online & Offline)
+        run: |
+          RUNNERS=$(curl -X GET -H "Authorization: Bearer ${{ secrets.SELF_HOSTED_PAT }}" \
+          -H "Accept: application/vnd.github+json" \
+          https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners | jq -r '.runners[].id')
+
+          if [[ -z "$RUNNERS" ]]; then
+            echo "✅ No self-hosted runners found. Skipping removal."
+          else
+            for RUNNER_ID in $RUNNERS; do
+              echo "Removing runner ID: $RUNNER_ID"
+              curl -X DELETE -H "Authorization: Bearer ${{ secrets.SELF_HOSTED_PAT }}" \
+              -H "Accept: application/vnd.github+json" \
+              https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/$RUNNER_ID
+            done
+          fi
+
       - name: Setup and Configure GitHub Runner on EC2
         run: |
           ssh -i private-key.pem -o StrictHostKeyChecking=no ubuntu@${INSTANCE_IP} << EOF
