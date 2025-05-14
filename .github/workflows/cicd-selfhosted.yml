@@ -79,23 +79,23 @@ jobs:
 
       - name: Setup and Configure GitHub Runner on EC2
         run: |
-          ssh -i private-key.pem -o StrictHostKeyChecking=no ubuntu@${INSTANCE_IP} << 'EOF'
-          export RUNNER_NAME="${RUNNER_NAME}"
-          export RUNNER_TOKEN="${RUNNER_TOKEN}"
+          ssh -i private-key.pem -o StrictHostKeyChecking=no ubuntu@${INSTANCE_IP} << EOF
+            sudo apt update && sudo apt install -y unzip git curl jq awscli
+            mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner
+            sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
+            sudo chmod -R 755 /home/ubuntu/actions-runner
+            curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
+            tar xzf ./actions-runner-linux-x64.tar.gz
+            
+            # Pass variables directly instead of using export
+            ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino \
+            --token "${{ env.RUNNER_TOKEN }}" \
+            --name "${{ env.RUNNER_NAME }}" \
+            --labels aws,ec2,linux \
+            --work /home/ubuntu/runner_work \
+            --runnergroup Default
 
-          sudo apt update && sudo apt install -y unzip git curl jq awscli
-          mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner
-          sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
-          sudo chmod -R 755 /home/ubuntu/actions-runner
-          curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
-          tar xzf ./actions-runner-linux-x64.tar.gz
-          ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino \
-          --token "$RUNNER_TOKEN" \
-          --name "$RUNNER_NAME" \
-          --labels aws,ec2,linux \
-          --work /home/ubuntu/runner_work \
-          --runnergroup Default
-          nohup ./run.sh > runner.log 2>&1 &
+            nohup ./run.sh > runner.log 2>&1 &
           EOF
 
   Compilation-on-self-hosted:
