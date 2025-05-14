@@ -1,31 +1,37 @@
-name: AWS Self-Hosted Runner Setup
+name: AWS Self-Hosted Runner & AOSP Build
+
 on:
   push:
     branches:
       - master
 
 jobs:
-  setup-runner:
+  setup-AWS-host-runner:
     runs-on: ubuntu-latest
     outputs:
       instance_ip: ${{ env.INSTANCE_IP }}
       instance_id: ${{ env.INSTANCE_ID }}
+      runner_name: ${{ env.RUNNER_NAME }}
     steps:
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+      - name: Generate Dynamic Runner Name
+        run: |
+          RUNNER_NAME="self-hosted-runner-$(date +%Y%m%d%H%M%S)"
+          echo "RUNNER_NAME=$RUNNER_NAEM" >> $GITHUB_ENV
 
-      - name: Install AWS CLI Manually
+      - name: Configure AWS Credentials
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set region us-east-1
+
+      - name: Install AWS CLI
         run: |
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip awscliv2.zip
           sudo ./aws/install --update
           aws --version
 
-      - name: Launch EC2 Instance
+      - name: Launch EC2 Instance for Runner
         id: start-ec2
         run: |
           SUBNET_ID=$(aws ec2 describe-subnets --query 'Subnets[0].SubnetId' --output text)
@@ -36,12 +42,76 @@ jobs:
             --subnet-id $SUBNET_ID \
             --key-name new-key \
             --associate-public-ip-address \
-            --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner1}]" \
+            --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$RUNNER_NAME}]" \
             --query "Instances[0].InstanceId" --output text)
-            INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+          INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
           echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
 
+      - name: Wait for EC2 Instance to Start
+        run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+
+      - name: Setup SSH Key
+        run: |
+          echo "${{ secrets.AWS_SSH_PRIVATE_KEY }}" > private-key.pem
+          chmod 600 private-key.pem
+
+      - name: Fetch GitHub Runner Token
+        id: get-token
+        run: |
+          RUNNER_TOKEN=$(curl -X POST -H "Authorization: Bearer ${{ secrets.SELF_HOSTED_PAT }}" \
+          -H "Accept: application/vnd.github+json" \
+          https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/registration-token | jq -r '.token')
+          echo "RUNNER_TOKEN=$RUNNER_TOKEN" >> $GITHUB_ENV
+
+      - name: Setup and Configure GitHub Runner on EC2
+        run: |
+          ssh -i private-key.pem -o StrictHostKeyChecking=no ubuntu@${INSTANCE_IP} "export RUNNER_NAME=$RUNNER_NAME && export RUNNER_TOKEN=$RUNNER_TOKEN && bash -s" << 'EOF'
+          sudo apt update && sudo apt install -y unzip git curl jq awscli
+          mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner
+          sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
+          sudo chmod -R 755 /home/ubuntu/actions-runner
+          curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
+          tar xzf ./actions-runner-linux-x64.tar.gz
+          ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino \
+          --token $RUNNER_TOKEN \
+          --name "$RUNNER_NAME" \
+          --labels aws,ec2,linux \
+          --work /home/ubuntu/runner_work \
+          --runnergroup Default
+          nohup ./run.sh > runner.log 2>&1 &
+          EOF
+
+  Compilation-on-self-hosted:
+    needs: setup-AWS-host-runner
+    runs-on: ${{ needs.setup-runner.outputs.runner_name }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      - name: Configure AWS Credentials
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set region us-east-1
+
+      - name: Launch New EC2 Instance for Build
+        id: launch-instance
+        run: |
+          INSTANCE_NAME="AOSP-Build-Instance-$(date +%Y%m%d%H%M%S)"
+          UBUNTU_AMI_ID=$(aws ec2 describe-images --owners 099720109477 \
+            --filters "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*" \
+            --query 'Images | sort_by(@, &CreationDate)[-1].ImageId' --output text)
+          SUBNET_ID=$(aws ec2 describe-subnets --query 'Subnets[0].SubnetId' --output text)
+          INSTANCE_ID=$(aws ec2 run-instances --image-id $UBUNTU_AMI_ID \
+            --count 1 --instance-type t3micro \
+            --key-name new-key \
+            --security-group-ids sg-04b81fc613de74b2a \
+            --subnet-id $SUBNET_ID \
+            --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$INSTANCE_NAME}]" \
+            --query "Instances[0].InstanceId" --output text)
+          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+          INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+          echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
       - name: Wait for EC2 Instance to Start
         run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
       - name: Ensure EC2 Instance Is Fully Initialized
@@ -57,47 +127,103 @@ jobs:
             fi
             sleep 10
           done
-          
-      - name: Setup SSH Key
+
+      - name: Setup SSH Key for EC2 Access
         run: |
           echo "${{ secrets.AWS_SSH_PRIVATE_KEY }}" > private-key.pem
           chmod 600 private-key.pem
-      - name: Fetch GitHub Runner Token Dynamically
-        id: get-token
-        run: |
-          RUNNER_TOKEN=$(curl -X POST -H "Authorization: Bearer ${{ secrets.SELF_HOSTED_PAT }}" \
-          -H "Accept: application/vnd.github+json" \
-          https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/registration-token | jq -r '.token')
-          echo "RUNNER_TOKEN=$RUNNER_TOKEN" >> $GITHUB_ENV
 
-      - name: Setup and Configure GitHub Runner on EC2
+      - name: Configure Swap Space
         run: |
-          ssh -i private-key.pem -o StrictHostKeyChecking=no ubuntu@${INSTANCE_IP} "export RUNNER_TOKEN=$RUNNER_TOKEN && bash -s" << 'EOF'
-          sudo apt update && sudo apt install -y unzip git curl jq awscli
-            mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner
-            sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
-            sudo chmod -R 755 /home/ubuntu/actions-runner
-            curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
-            tar xzf ./actions-runner-linux-x64.tar.gz
-            echo "Using Token: $RUNNER_TOKEN"
-            ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino \
-            --token $RUNNER_TOKEN \
-            --name "AWS-Self-Hosted1" \
-            --labels aws,ec2,linux \
-            --work /home/ubuntu/runner_work \
-            --runnergroup Default
-            nohup ./run.sh > runner.log 2>&1 &
+          ssh -i private-key.pem -o StrictHostKeyChecking=no ubuntu@${INSTANCE_IP} << "EOF"
+            sudo fallocate -l 64G /swapfile
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+            sudo swapon /swapfile
+            echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
+            sudo sysctl vm.swappiness=10
+            echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+          EOF
+      - name: Install Docker on EC2
+        run: |
+          ssh -i private-key.pem -o StrictHostKeyChecking=no ubuntu@${INSTANCE_IP} << "EOF"
+            sudo apt update && sudo apt install -y docker.io
+            sudo usermod -aG docker ubuntu
+            sudo systemctl restart docker
           EOF
 
-  run-on-self-hosted:
-    needs: setup-runner
-    runs-on: self-hosted
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Build Project
+      - name: Authenticate with GitHub Container Registry
         run: |
-          echo "Running build on self-hosted runner..."
-          mkdir -p /home/ubuntu/build-output
-          echo "Build successful!" > /home/ubuntu/build-output/result.txt
+          ssh -i private-key.pem -o StrictHostKeyChecking=no ubuntu@${INSTANCE_IP} << EOF
+            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+          EOF
+
+      - name: Check and Use Prebuilt Docker Image
+        run: |
+          ssh -i private-key.pem -o StrictHostKeyChecking=no ubuntu@${INSTANCE_IP} << 'EOF'
+            set -e  # Stop execution on failure
+            echo "Checking if Docker image exists in GHCR..."
+            
+            docker pull ghcr.io/${{ github.repository_owner }}/aosp-build-docker:1.0 || IMAGE_NOT_FOUND="true"
+  
+            if [[ -z "$IMAGE_NOT_FOUND" ]]; then
+              echo "✅ Docker image found in GHCR, running container..."
+              docker run -d --name aosp-container --restart unless-stopped -v /home/ubuntu/aosp:/workspace ghcr.io/${{ github.repository_owner }}/aosp-build-docker:1.0
+            else
+              echo "⚠️ Docker image not found, building and pushing to GHCR..."
+              mkdir -p /home/ubuntu/aosp && cd /home/ubuntu/aosp
+              
+              echo "FROM ubuntu:20.04" > Dockerfile
+              echo "ENV DEBIAN_FRONTEND=noninteractive" >> Dockerfile
+              echo "RUN apt update && apt install -y git curl python3 python3-pip openjdk-11-jdk wget unzip gcc g++ make libncurses5 libncurses5-dev bison flex gperf zip zlib1g-dev ccache lzop lsb-release sudo python-is-python3" >> Dockerfile
+              
+              echo "RUN ln -fs /usr/share/zoneinfo/Asia/Kolkata /etc/localtime" >> Dockerfile
+              echo "RUN echo 'Asia/Kolkata' > /etc/timezone" >> Dockerfile
+              echo "RUN apt update && apt install -y tzdata" >> Dockerfile
+              echo "RUN dpkg-reconfigure --frontend noninteractive tzdata" >> Dockerfile
+              echo "RUN apt update && sudo apt install -y ninja-build rsync awscli" >> Dockerfile
+              
+              echo "RUN mkdir -p /usr/local/bin && curl -o /usr/local/bin/repo https://storage.googleapis.com/git-repo-downloads/repo" >> Dockerfile
+              echo "RUN chmod a+x /usr/local/bin/repo && ln -s /usr/local/bin/repo /usr/bin/repo" >> Dockerfile
+              
+              echo "WORKDIR /workspace" >> Dockerfile
+              echo "COPY entrypoint.sh /entrypoint.sh" >> Dockerfile
+              echo "RUN chmod +x /entrypoint.sh" >> Dockerfile
+              echo "ENTRYPOINT [\"/entrypoint.sh\"]" >> Dockerfile
+              
+              echo "#!/bin/bash" > entrypoint.sh
+              echo "exec tail -f /dev/null" >> entrypoint.sh
+              chmod +x entrypoint.sh
+  
+              echo "Building Docker image..."
+              docker build -t ghcr.io/${{ github.repository_owner }}/aosp-build-docker:1.0 . || {
+                  echo "❌ Failed to build Docker image!"
+                  exit 1
+              }
+              echo "Pushing Docker image to GHCR..."
+              docker push ghcr.io/${{ github.repository_owner }}/aosp-build-docker:1.0 && echo "✅ Image successfully pushed!"
+              echo "Running newly built container..."
+              docker run -d --name aosp-container --restart unless-stopped -v /home/ubuntu/aosp:/workspace ghcr.io/${{ github.repository_owner }}/aosp-build-docker:1.0
+            fi
+          EOF
+      - name: Ensure Log Directory Exists
+        run: |
+          ssh -i private-key.pem -o StrictHostKeyChecking=no ubuntu@${INSTANCE_IP} << EOF
+            sudo mkdir -p /workspace/logs
+            sudo chmod -R 777 /workspace
+            sudo touch /workspace/logs/repo_sync.log
+          EOF
+      - name: Repo Init & Sync
+        run: |
+          ssh -i private-key.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o TCPKeepAlive=yes -o ConnectTimeout=30 ubuntu@${INSTANCE_IP} << EOF
+            docker exec aosp-container bash -c "
+              rm -rf /workspace/.repo &&
+              mkdir -p /workspace/logs
+              echo 'Initializing repo...'
+              repo init -u https://android.googlesource.com/accessories/manifest
+              echo 'Syncing repo...'
+               for i in {1..3}; do
+                repo sync -c -j$(nproc) 2>&1 | tee /workspace/logs/repo_sync.log && break || sleep 10
+              done
+            "
+          EOF
