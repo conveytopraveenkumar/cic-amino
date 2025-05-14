@@ -121,11 +121,8 @@ jobs:
         id: launch-instance
         run: |
           INSTANCE_NAME="AOSP-Build-Instance-$(date +%Y%m%d%H%M%S)"
-          UBUNTU_AMI_ID=$(aws ec2 describe-images --owners 099720109477 \
-            --filters "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*" \
-            --query 'Images | sort_by(@, &CreationDate)[-1].ImageId' --output text)
           SUBNET_ID=$(aws ec2 describe-subnets --query 'Subnets[0].SubnetId' --output text)
-          INSTANCE_ID=$(aws ec2 run-instances --image-id $UBUNTU_AMI_ID \
+          INSTANCE_ID=$(aws ec2 run-instances --image-id ami-0f9de6e2d2f067fca \
             --count 1 --instance-type t3micro \
             --key-name new-key \
             --security-group-ids sg-04b81fc613de74b2a \
