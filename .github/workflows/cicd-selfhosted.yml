@@ -123,7 +123,7 @@ jobs:
           INSTANCE_NAME="AOSP-Build-Instance-$(date +%Y%m%d%H%M%S)"
           SUBNET_ID=$(aws ec2 describe-subnets --query 'Subnets[0].SubnetId' --output text)
           INSTANCE_ID=$(aws ec2 run-instances --image-id ami-0f9de6e2d2f067fca \
-            --count 1 --instance-type t3micro \
+            --count 1 --instance-type t3.micro \
             --key-name new-key \
             --security-group-ids sg-04b81fc613de74b2a \
             --subnet-id $SUBNET_ID \
