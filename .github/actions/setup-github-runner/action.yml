@@ -1,0 +1,65 @@
+name: "Setup GitHub Runner"
+description: "Removes old runners and registers a new self-hosted runner"
+inputs:
+  instance_ip:
+    required: true
+    type: string
+outputs:
+  runner_name:
+    description: "Self-hosted Runner Name"
+    value: ${{ steps.set-runner-name.outputs.runner_name }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Fetch GitHub Runner Token
+      id: get-token
+      run: |
+        RUNNER_TOKEN=$(curl -X POST -H "Authorization: Bearer ${{ secrets.SELF_HOSTED_PAT }}" \
+        -H "Accept: application/vnd.github+json" \
+        https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/registration-token | jq -r '.token')
+        echo "RUNNER_TOKEN=$RUNNER_TOKEN" >> $GITHUB_ENV
+      shell: bash
+
+    # - name: Remove Existing Self-Hosted Runners
+    #   run: |
+    #     RUNNERS=$(curl -X GET -H "Authorization: Bearer ${{ secrets.SELF_HOSTED_PAT }}" \
+    #     -H "Accept: application/vnd.github+json" \
+    #     https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners | jq -r '.runners[].id')
+
+    #     for RUNNER_ID in $RUNNERS; do
+    #       echo "Removing runner ID: $RUNNER_ID"
+    #       curl -X DELETE -H "Authorization: Bearer ${{ secrets.SELF_HOSTED_PAT }}" \
+    #       -H "Accept: application/vnd.github+json" \
+    #       https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/$RUNNER_ID
+    #     done
+    #   shell: bash
+
+    - name: Generate Dynamic Runner Name
+      id: set-runner-name
+      run: |
+        RUNNER_NAME="self-hosted-runner-$(date +%Y%m%d%H%M%S)"
+        echo "RUNNER_NAME=$RUNNER_NAME" >> $GITHUB_ENV
+        echo "runner_name=$RUNNER_NAME" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: Setup and Configure GitHub Runner on EC2
+      run: |
+        ssh -i private-key.pem -o StrictHostKeyChecking=no ubuntu@${{ inputs.instance_ip }} << EOF
+          sudo apt update && sudo apt install -y unzip git curl jq awscli
+          mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner
+          sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
+          sudo chmod -R 755 /home/ubuntu/actions-runner
+          curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
+          tar xzf ./actions-runner-linux-x64.tar.gz
+          
+          ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino \
+          --token "${{ env.RUNNER_TOKEN }}" \
+          --name "${{ env.RUNNER_NAME }}" \
+          --labels aws,ec2,linux,aosp-runner,android-build \
+          --work /home/ubuntu/runner_work \
+          --runnergroup Default
+
+          nohup ./run.sh > runner.log 2>&1 &
+        EOF
+      shell: bash
