@@ -1,0 +1,27 @@
+name: "Setup AWS"
+description: "Configures AWS credentials and launches an EC2 instance"
+outputs:
+  instance_ip:
+    description: "EC2 Instance IP"
+    value: ${{ steps.set-instance.outputs.instance_ip }}
+  instance_id:
+    description: "EC2 Instance ID"
+    value: ${{ steps.set-instance.outputs.instance_id }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Configure AWS Credentials
+      run: |
+        aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws configure set region us-east-1
+      shell: bash
+
+    - name: Install AWS CLI
+      run: |
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+        unzip awscliv2.zip
+        sudo ./aws/install --update
+        aws --version
+      shell: bash
