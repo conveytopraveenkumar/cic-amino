@@ -4,6 +4,9 @@ inputs:
   instance_ip:
     required: true
     type: string
+  self_hosted_pat:  # Define the input for the GitHub token
+    required: true
+    type: string
 outputs:
   runner_name:
     description: "Self-hosted Runner Name"
@@ -15,25 +18,11 @@ runs:
     - name: Fetch GitHub Runner Token
       id: get-token
       run: |
-        RUNNER_TOKEN=$(curl -X POST -H "Authorization: Bearer ${{ secrets.SELF_HOSTED_PAT }}" \
+        RUNNER_TOKEN=$(curl -X POST -H "Authorization: Bearer ${{ inputs.self_hosted_pat }}" \
         -H "Accept: application/vnd.github+json" \
         https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/registration-token | jq -r '.token')
         echo "RUNNER_TOKEN=$RUNNER_TOKEN" >> $GITHUB_ENV
       shell: bash
-
-    # - name: Remove Existing Self-Hosted Runners
-    #   run: |
-    #     RUNNERS=$(curl -X GET -H "Authorization: Bearer ${{ secrets.SELF_HOSTED_PAT }}" \
-    #     -H "Accept: application/vnd.github+json" \
-    #     https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners | jq -r '.runners[].id')
-
-    #     for RUNNER_ID in $RUNNERS; do
-    #       echo "Removing runner ID: $RUNNER_ID"
-    #       curl -X DELETE -H "Authorization: Bearer ${{ secrets.SELF_HOSTED_PAT }}" \
-    #       -H "Accept: application/vnd.github+json" \
-    #       https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/$RUNNER_ID
-    #     done
-    #   shell: bash
 
     - name: Generate Dynamic Runner Name
       id: set-runner-name
