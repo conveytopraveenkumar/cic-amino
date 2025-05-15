@@ -44,21 +44,26 @@ runs:
 
         echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
         echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
-      - name: Wait for EC2 Instance to Start
-        run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
-      - name: Ensure EC2 Instance Is Fully Initialized
-        run: |
-          while true; do
-            INSTANCE_STATE=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].InstanceState.Name" --output text)
-            SYSTEM_STATUS=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].SystemStatus.Status" --output text)
-            INSTANCE_STATUS=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].InstanceStatus.Status" --output text)
-            echo "Current State: $INSTANCE_STATE | System Status: $SYSTEM_STATUS | Instance Status: $INSTANCE_STATUS"
-            if [[ "$INSTANCE_STATE" == "running" && "$SYSTEM_STATUS" == "ok" && "$INSTANCE_STATUS" == "ok" ]]; then
-              echo "Instance is fully initialized!"
-              break
-            fi
-            sleep 10
-          done
+
+    - name: Wait for EC2 Instance to Start
+      shell: bash
+      run: |
+        aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+
+    - name: Ensure EC2 Instance Is Fully Initialized
+      shell: bash
+      run: |
+        while true; do
+          INSTANCE_STATE=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].InstanceState.Name" --output text)
+          SYSTEM_STATUS=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].SystemStatus.Status" --output text)
+          INSTANCE_STATUS=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].InstanceStatus.Status" --output text)
+          echo "Current State: $INSTANCE_STATE | System Status: $SYSTEM_STATUS | Instance Status: $INSTANCE_STATUS"
+          if [[ "$INSTANCE_STATE" == "running" && "$SYSTEM_STATUS" == "ok" && "$INSTANCE_STATUS" == "ok" ]]; then
+            echo "Instance is fully initialized!"
+            break
+          fi
+          sleep 10
+        done
 
     - name: Configure GitHub Runner on EC2
       shell: bash
