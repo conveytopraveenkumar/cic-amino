@@ -88,18 +88,30 @@ jobs:
       
           echo "Waiting for AWS CLI installation..."
           aws ssm wait command-executed --instance-id "${{ env.INSTANCE_ID }}" --command-id "$COMMAND_ID"
-      - name: Check SSM Agent Status
+          
+      - name: Install SSM Agent via AWS SSM on EC2
         run: |
           COMMAND_ID=$(aws ssm send-command \
             --document-name "AWS-RunShellScript" \
             --targets '[{"Key":"InstanceIds","Values":["${{ env.INSTANCE_ID }}"]}]' \
-            --parameters '{"commands":["amazon-ssm-agent --version"]}' \
+            --parameters '{"commands":["sudo apt update && sudo apt install -y amazon-ssm-agent",
+                                       "sudo systemctl enable amazon-ssm-agent",
+                                       "sudo systemctl start amazon-ssm-agent",
+                                       "amazon-ssm-agent --version | tee /home/ubuntu/ssm-install.log"]}' \
             --region us-east-1 \
             --query "Command.CommandId" --output text)
       
-          echo "Checking SSM Agent version..."
+          echo "Waiting for SSM Agent installation..."
           aws ssm wait command-executed --instance-id "${{ env.INSTANCE_ID }}" --command-id "$COMMAND_ID"
-      
+    
+      - name: Verify SSM Agent Installation
+        run: |
+          aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets '[{"Key":"InstanceIds","Values":["${{ env.INSTANCE_ID }}"]}]' \
+            --parameters '{"commands":["cat /home/ubuntu/ssm-install.log"]}' \
+            --region us-east-1
+
       - name: Setup and Configure GitHub Runner Using SSM
         run: |
           COMMAND_ID=$(aws ssm send-command \
