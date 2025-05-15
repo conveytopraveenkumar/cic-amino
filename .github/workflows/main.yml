@@ -7,6 +7,8 @@ on:
 jobs:
   setup-aws:
     runs-on: ubuntu-latest
+    env:
+      SELF_HOSTED_PAT: ${{ secrets.SELF_HOSTED_PAT }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
