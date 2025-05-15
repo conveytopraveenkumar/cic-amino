@@ -48,7 +48,7 @@ runs:
     - name: Wait for EC2 Instance to Start
       run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
       shell: bash
-   - name: Ensure EC2 Instance Is Fully Initialized
+    - name: Ensure EC2 Instance Is Fully Initialized
       run: |
         while true; do
           INSTANCE_STATE=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].InstanceState.Name" --output text)
@@ -61,9 +61,6 @@ runs:
           fi
           sleep 10
         done
-      shell: bash
-    - name: Debug EC2 Instance ID
-      run: echo "Launched EC2 Instance: $INSTANCE_ID"
       shell: bash
 
     - name: Install AWS CLI + Setup GitHub Runner via SSM
