@@ -121,14 +121,16 @@ jobs:
           COMMAND_ID=$(aws ssm send-command \
             --document-name "AWS-RunShellScript" \
             --targets '[{"Key":"InstanceIds","Values":["${{ env.INSTANCE_ID }}"]}]' \
-            --parameters '{"commands":["sudo apt update && sudo apt install -y unzip git curl jq awscli",
+            --parameters '{"commands":["export DEBIAN_FRONTEND=noninteractive && sudo apt update && sudo apt install -y unzip git curl jq awscli",
                                        "mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner",
+                                       "touch /home/ubuntu/actions-runner/ssm-command.log",
                                        "sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner",
                                        "sudo chmod -R 755 /home/ubuntu/actions-runner",
                                        "sudo chmod 644 /home/ubuntu/actions-runner/.env",
                                        "sudo chmod 644 /home/ubuntu/actions-runner/.path",
                                        "curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz",
                                        "tar xzf ./actions-runner-linux-x64.tar.gz",
+                                       "sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner",
                                        "sudo chown ubuntu:ubuntu /home/ubuntu/actions-runner/config.sh",
                                        "sudo chmod +x /home/ubuntu/actions-runner/config.sh",
                                        "sudo -u ubuntu ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token \"${{ env.RUNNER_TOKEN }}\" --name \"${{ env.RUNNER_NAME }}\" --labels aws,ec2,linux,aosp-runner,android-build --work /home/ubuntu/runner_work --runnergroup Default | tee /home/ubuntu/actions-runner/github-runner-setup.log",
@@ -145,9 +147,8 @@ jobs:
       
           echo "Fetching logs..."
           aws ssm list-command-invocations --command-id "$COMMAND_ID" --details --region us-east-1 | tee /home/ubuntu/actions-runner/ssm-command.log
-
-
-
+  
+  
 
 
 
