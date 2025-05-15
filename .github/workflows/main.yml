@@ -4,11 +4,10 @@ on:
   push:
     branches:
       - master
+
 jobs:
   setup-aws:
     runs-on: ubuntu-latest
-    env:
-      SELF_HOSTED_PAT: ${{ secrets.SELF_HOSTED_PAT }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -18,6 +17,7 @@ jobs:
         with:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          self_hosted_pat: ${{ secrets.SELF_HOSTED_PAT }}
 
   aosp-build:
     needs: setup-aws
@@ -34,5 +34,8 @@ jobs:
 
       - name: Build AOSP Project
         run: |
+          source build/envsetup.sh
+          lunch aosp_arm-eng
+          make -j$(nproc)
           mkdir -p /home/ubuntu/build-output
           echo "Build successful!" > /home/ubuntu/build-output/result.txt
