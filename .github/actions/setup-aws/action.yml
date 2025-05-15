@@ -8,9 +8,9 @@ inputs:
   aws_secret_access_key:
     description: "AWS Secret Access Key"
     required: true
-
-env:
-  SELF_HOSTED_PAT: ${{ secrets.SELF_HOSTED_PAT }}
+  self_hosted_pat:
+    description: "GitHub Actions Self-Hosted PAT Token"
+    required: true
 
 outputs:
   instance_id:
@@ -30,7 +30,7 @@ runs:
     - name: Export SELF_HOSTED_PAT to Environment
       shell: bash
       run: |
-        echo "SELF_HOSTED_PAT=${{ secrets.SELF_HOSTED_PAT }}" >> $GITHUB_ENV
+        echo "SELF_HOSTED_PAT=${{ inputs.self_hosted_pat }}" >> $GITHUB_ENV
 
     - name: Launch EC2 Instance with SSM Role
       id: get-instance-id
@@ -44,7 +44,6 @@ runs:
 
         echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
         echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
-
       - name: Wait for EC2 Instance to Start
         run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
       - name: Ensure EC2 Instance Is Fully Initialized
@@ -60,6 +59,7 @@ runs:
             fi
             sleep 10
           done
+
     - name: Configure GitHub Runner on EC2
       shell: bash
       run: |
