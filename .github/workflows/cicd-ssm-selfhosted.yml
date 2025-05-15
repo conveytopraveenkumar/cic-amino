@@ -43,7 +43,7 @@ jobs:
             --security-group-ids sg-04b81fc613de74b2a \
             --subnet-id $SUBNET_ID \
             --key-name new-key \
-            --iam-instance-profile Name=EC2SSMRole \
+            --iam-instance-profile Name=EC2SSMInstanceProfile1 \
             --associate-public-ip-address \
             --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$RUNNER_NAME}]" \
             --query "Instances[0].InstanceId" --output text)
