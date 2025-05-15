@@ -31,7 +31,7 @@ jobs:
          instance_id: ${{ needs.setup-aws.outputs.instance_id }}
          self_hosted_pat: ${{ secrets.SELF_HOSTED_PAT }}
          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-         aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY 
+         aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
   aosp-build:
     needs: setup-github-runner
