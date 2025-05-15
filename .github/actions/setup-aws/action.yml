@@ -70,7 +70,7 @@ runs:
           --targets "[{\"Key\":\"instanceids\",\"Values\":[\"$INSTANCE_ID\"]}]" \
           --parameters '{
             "commands":[
-              "sudo apt update && sudo apt install -y unzip curl jq git",
+              "sudo apt update && sudo apt install -y unzip git curl jq awscli",
               "sudo systemctl enable amazon-ssm-agent",
               "sudo systemctl start amazon-ssm-agent",
               "mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner",
