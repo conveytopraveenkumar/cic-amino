@@ -8,12 +8,6 @@ inputs:
   self_hosted_pat:
     required: true
     type: string
-  # aws_access_key_id:
-  #   required: true
-  #   type: string
-  # aws_secret_access_key:
-  #   required: true
-  #   type: string
 
 outputs:
   runner_name:
@@ -23,13 +17,6 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Configure AWS Credentials
-      run: |
-        aws configure set aws_access_key_id ${{ inputs.aws_access_key_id }}
-        aws configure set aws_secret_access_key ${{ inputs.aws_secret_access_key }}
-        aws configure set region us-east-1
-      shell: bash
-
     - name: Fetch GitHub Runner Token
       id: get-token
       run: |
