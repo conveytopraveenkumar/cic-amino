@@ -18,22 +18,23 @@ runs:
   using: "composite"
   steps:
     - name: Configure AWS CLI
+      shell: bash
       run: |
         aws configure set aws_access_key_id ${{ inputs.aws_access_key_id }}
         aws configure set aws_secret_access_key ${{ inputs.aws_secret_access_key }}
         aws configure set region us-east-1
-      shell: bash
 
     - name: Install AWS CLI
+      shell: bash
       run: |
         curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
         unzip awscliv2.zip
         sudo ./aws/install --update
         aws --version
-      shell: bash
 
     - name: Launch EC2 Instance with SSM Role
       id: get-instance-id
+      shell: bash
       run: |
         INSTANCE_ID=$(aws ec2 run-instances --image-id ami-0f9de6e2d2f067fca \
           --instance-type t3.micro --key-name new-key \
@@ -43,12 +44,13 @@ runs:
 
         echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
         echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
-      shell: bash
 
     - name: Wait for EC2 Instance to Start
-      run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
       shell: bash
+      run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+
     - name: Ensure EC2 Instance Is Fully Initialized
+      shell: bash
       run: |
         while true; do
           INSTANCE_STATE=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].InstanceState.Name" --output text)
@@ -61,25 +63,24 @@ runs:
           fi
           sleep 10
         done
-      shell: bash
 
-  - name: Install AWS CLI + Setup GitHub Runner via SSM
-    run: |
-      aws ssm send-command \
-        --document-name "AWS-RunShellScript" \
-        --targets "[{\"Key\":\"instanceids\",\"Values\":[\"$INSTANCE_ID\"]}]" \
-        --parameters '{
-          "commands":[
-            "sudo apt update && sudo apt install -y unzip git curl jq awscli",
-            "sudo systemctl enable amazon-ssm-agent",
-            "sudo systemctl start amazon-ssm-agent",
-            "mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner",
-            "curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz",
-            "tar xzf ./actions-runner-linux-x64.tar.gz",
-            "sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner",
-            "sudo -u ubuntu ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token $RUNNER_TOKEN --name self-hosted-runner-$(date +%Y%m%d%H%M%S) --labels aws,ec2,linux,aosp-runner,android-build --work /home/ubuntu/runner_work --runnergroup Default",
-            "sudo -u ubuntu nohup ./run.sh > runner.log 2>&1 &"
-          ]
-        }' \
-        --region us-east-1
-    shell: bash
+    - name: Install AWS CLI + Setup GitHub Runner via SSM
+      shell: bash
+      run: |
+        aws ssm send-command \
+          --document-name "AWS-RunShellScript" \
+          --targets "[{\"Key\":\"instanceids\",\"Values\":[\"$INSTANCE_ID\"]}]" \
+          --parameters '{
+            "commands":[
+              "sudo apt update && sudo apt install -y unzip git curl jq awscli",
+              "sudo systemctl enable amazon-ssm-agent",
+              "sudo systemctl start amazon-ssm-agent",
+              "mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner",
+              "curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz",
+              "tar xzf ./actions-runner-linux-x64.tar.gz",
+              "sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner",
+              "sudo -u ubuntu ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token $RUNNER_TOKEN --name self-hosted-runner-$(date +%Y%m%d%H%M%S) --labels aws,ec2,linux,aosp-runner,android-build --work /home/ubuntu/runner_work --runnergroup Default",
+              "sudo -u ubuntu nohup ./run.sh > runner.log 2>&1 &"
+            ]
+          }' \
+          --region us-east-1
