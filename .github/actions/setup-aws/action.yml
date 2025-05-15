@@ -76,27 +76,30 @@ runs:
             "sudo systemctl enable amazon-ssm-agent",
             "sudo systemctl start amazon-ssm-agent",
       
-            # Install AWS Session Manager Plugin
-            "curl \"https://s3.amazonaws.com/session-manager-downloads/plugin/latest/linux_64bit/session-manager-plugin.rpm\" -o \"session-manager-plugin.rpm\"",
+            "echo Installing AWS Session Manager Plugin...",
+            "curl -o session-manager-plugin.rpm https://s3.amazonaws.com/session-manager-downloads/plugin/latest/linux_64bit/session-manager-plugin.rpm",
             "sudo rpm -i session-manager-plugin.rpm",
       
-            # Setup GitHub Actions Runner
+            "echo Setting up GitHub Actions Runner...",
             "mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner",
             "curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz",
             "tar xzf ./actions-runner-linux-x64.tar.gz",
             "sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner",
       
-            # Generate Runner Token and Name
-            "RUNNER_TOKEN=$(curl -X POST -H \"Authorization: Bearer $SELF_HOSTED_PAT\" -H \"Accept: application/vnd.github+json\" https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/registration-token | jq -r \".token\")",
+            "echo Fetching GitHub Runner Token...",
+            "RUNNER_TOKEN=$(curl -X POST -H \"Authorization: Bearer ***\" -H \"Accept: application/vnd.github+json\" https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/registration-token | jq -r \".token\")",
             "RUNNER_NAME=\"self-hosted-runner-$(date +%Y%m%d%H%M%S)\"",
-            "echo \"RUNNER_TOKEN=$RUNNER_TOKEN\" >> /home/ubuntu/actions-runner/runner.env",
+            "echo \"RUNNER_TOKEN=$RUNNER_TOKEN\" > /home/ubuntu/actions-runner/runner.env",
             "echo \"RUNNER_NAME=$RUNNER_NAME\" >> /home/ubuntu/actions-runner/runner.env",
       
-            # Register and Start the Runner
+            "echo Registering the runner...",
             "sudo -u ubuntu ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token $RUNNER_TOKEN --name $RUNNER_NAME --labels aws,ec2,linux,aosp-runner,android-build --work /home/ubuntu/runner_work --runnergroup Default",
+      
+            "echo Starting the runner...",
             "sudo -u ubuntu nohup ./run.sh > runner.log 2>&1 &"
           ]
         }' \
         --region us-east-1
+
 
 
