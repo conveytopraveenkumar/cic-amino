@@ -1,15 +1,14 @@
 name: "Setup GitHub Runner"
-description: "Registers an EC2 instance as a self-hosted runner"
+description: "Registers an EC2 instance as a self-hosted runner using SSM"
+
 inputs:
-  instance_ip:
+  instance_id:
     required: true
     type: string
   self_hosted_pat:
     required: true
     type: string
-  ssh_private_key:  # New input for SSH key
-    required: true
-    type: string
+
 outputs:
   runner_name:
     description: "Self-hosted Runner Name"
@@ -35,29 +34,18 @@ runs:
         echo "runner_name=$RUNNER_NAME" >> $GITHUB_OUTPUT
       shell: bash
 
-    - name: Setup SSH Key
+    - name: Setup GitHub Runner on EC2 via SSM
       run: |
-        echo "${{ inputs.ssh_private_key }}" > private-key.pem
-        chmod 600 private-key.pem
-      shell: bash
-
-    - name: Setup and Configure GitHub Runner on EC2
-      run: |
-        ssh -i private-key.pem -o StrictHostKeyChecking=no ubuntu@${{ inputs.instance_ip }} << EOF
-          sudo apt update && sudo apt install -y unzip git curl jq awscli
-          mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner
-          sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
-          sudo chmod -R 755 /home/ubuntu/actions-runner
-          curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
-          tar xzf ./actions-runner-linux-x64.tar.gz
-          
-          ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino \
-          --token "${{ env.RUNNER_TOKEN }}" \
-          --name "${{ env.RUNNER_NAME }}" \
-          --labels aws,ec2,linux,aosp-runner,android-build \
-          --work /home/ubuntu/runner_work \
-          --runnergroup Default
-
-          nohup ./run.sh > runner.log 2>&1 &
-        EOF
+        aws ssm send-command \
+          --document-name "AWS-RunShellScript" \
+          --targets '[{"Key":"instanceids","Values":["${{ inputs.instance_id }}"]}]' \
+          --parameters '{
+            "commands":[
+              "mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner",
+              "curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz",
+              "tar xzf ./actions-runner-linux-x64.tar.gz",
+              "./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token $RUNNER_TOKEN --name $RUNNER_NAME --labels aws,ec2,linux,aosp-runner,android-build --work /home/ubuntu/runner_work --runnergroup Default",
+              "nohup ./run.sh > runner.log 2>&1 &"
+            ]
+          }'
       shell: bash
