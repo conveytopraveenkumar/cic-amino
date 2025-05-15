@@ -125,16 +125,18 @@ jobs:
                                        "mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner",
                                        "sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner",
                                        "sudo chmod -R 755 /home/ubuntu/actions-runner",
+                                       "sudo chmod 644 /home/ubuntu/actions-runner/.env",
+                                       "sudo chmod 644 /home/ubuntu/actions-runner/.path",
                                        "curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz",
                                        "tar xzf ./actions-runner-linux-x64.tar.gz",
                                        "sudo chown ubuntu:ubuntu /home/ubuntu/actions-runner/config.sh",
                                        "sudo chmod +x /home/ubuntu/actions-runner/config.sh",
-                                       "sudo -u ubuntu ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token \"${{ env.RUNNER_TOKEN }}\" --name \"${{ env.RUNNER_NAME }}\" --labels aws,ec2,linux,aosp-runner,android-build --work /home/ubuntu/runner_work --runnergroup Default | tee /home/ubuntu/github-runner-setup.log",
+                                       "sudo -u ubuntu ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token \"${{ env.RUNNER_TOKEN }}\" --name \"${{ env.RUNNER_NAME }}\" --labels aws,ec2,linux,aosp-runner,android-build --work /home/ubuntu/runner_work --runnergroup Default | tee /home/ubuntu/actions-runner/github-runner-setup.log",
                                        "sudo chmod +x /home/ubuntu/actions-runner/run.sh",
                                        "sudo chown ubuntu:ubuntu /home/ubuntu/actions-runner/run.sh",
-                                       "sudo -u ubuntu nohup /home/ubuntu/actions-runner/run.sh > /home/ubuntu/runner.log 2>&1 &",
+                                       "sudo -u ubuntu nohup /home/ubuntu/actions-runner/run.sh > /home/ubuntu/actions-runner/runner.log 2>&1 &",
                                        "sleep 10",
-                                       "ps aux | grep runner | tee /home/ubuntu/runner-process.log"]}' \
+                                       "ps aux | grep runner | tee /home/ubuntu/actions-runner/runner-process.log"]}' \
             --region us-east-1 \
             --query "Command.CommandId" --output text)
       
@@ -142,7 +144,7 @@ jobs:
           aws ssm wait command-executed --instance-id "${{ env.INSTANCE_ID }}" --command-id "$COMMAND_ID"
       
           echo "Fetching logs..."
-          aws ssm list-command-invocations --command-id "$COMMAND_ID" --details --region us-east-1 | tee /home/ubuntu/ssm-command.log
+          aws ssm list-command-invocations --command-id "$COMMAND_ID" --details --region us-east-1 | tee /home/ubuntu/actions-runner/ssm-command.log
 
 
 
