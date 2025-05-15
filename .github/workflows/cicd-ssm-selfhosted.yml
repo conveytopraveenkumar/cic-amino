@@ -1,0 +1,177 @@
+name: AWS Self-Hosted Runner & AOSP Build
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  setup-AWS-host-runner:
+    runs-on: ubuntu-latest
+    outputs:
+      instance_ip: ${{ steps.set-instance.outputs.instance_ip }}
+      instance_id: ${{ steps.set-instance.outputs.instance_id }}
+      runner_name: ${{ steps.set-runner-name.outputs.runner_name }}
+    steps:
+      - name: Configure AWS Credentials
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set region us-east-1
+
+      - name: Install AWS CLI
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install --update
+          aws --version
+          
+      - name: Generate Dynamic Runner Name
+        id: set-runner-name
+        run: |
+          RUNNER_NAME="self-hosted-runner-$(date +%Y%m%d%H%M%S)"
+          echo "RUNNER_NAME=$RUNNER_NAME" >> $GITHUB_ENV
+          echo "runner_name=$RUNNER_NAME" >> $GITHUB_OUTPUT
+          
+      - name: Launch EC2 Instance for Runner
+        id: start-ec2
+        run: |
+          SUBNET_ID=$(aws ec2 describe-subnets --query 'Subnets[0].SubnetId' --output text)
+          INSTANCE_ID=$(aws ec2 run-instances \
+            --image-id ami-0f9de6e2d2f067fca \
+            --instance-type t3.micro \
+            --security-group-ids sg-04b81fc613de74b2a \
+            --subnet-id $SUBNET_ID \
+            --key-name new-key \
+            --iam-instance-profile Name=EC2SSMRole \
+            --associate-public-ip-address \
+            --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$RUNNER_NAME}]" \
+            --query "Instances[0].InstanceId" --output text)
+          INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+          echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
+          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+          echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+
+      - name: Wait for EC2 Instance to Start
+        run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+
+      - name: Ensure EC2 Instance Is Fully Initialized
+        run: |
+          while true; do
+            INSTANCE_STATE=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].InstanceState.Name" --output text)
+            SYSTEM_STATUS=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].SystemStatus.Status" --output text)
+            INSTANCE_STATUS=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].InstanceStatus.Status" --output text)
+            echo "Current State: $INSTANCE_STATE | System Status: $SYSTEM_STATUS | Instance Status: $INSTANCE_STATUS"
+            if [[ "$INSTANCE_STATE" == "running" && "$SYSTEM_STATUS" == "ok" && "$INSTANCE_STATUS" == "ok" ]]; then
+              echo "Instance is fully initialized!"
+              break
+            fi
+            sleep 10
+          done
+
+      - name: Fetch GitHub Runner Token
+        id: get-token
+        run: |
+          RUNNER_TOKEN=$(curl -X POST -H "Authorization: Bearer ${{ secrets.SELF_HOSTED_PAT }}" \
+          -H "Accept: application/vnd.github+json" \
+          https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/registration-token | jq -r '.token')
+          echo "RUNNER_TOKEN=$RUNNER_TOKEN" >> $GITHUB_ENV
+          
+      - name: Verify and Install SSM Agent on EC2
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets '[{"Key":"InstanceIds","Values":["${{ env.INSTANCE_ID }}"]}]' \
+            --parameters '{"commands":["if systemctl status amazon-ssm-agent > /dev/null; then echo \"✅ SSM Agent is installed.\"; else",
+                                       "sudo yum install -y amazon-ssm-agent || sudo apt update && sudo apt install -y amazon-ssm-agent",
+                                       "sudo systemctl enable amazon-ssm-agent",
+                                       "sudo systemctl start amazon-ssm-agent",
+                                       "fi"]}' \
+            --query "Command.CommandId" --output text)
+
+          echo "Waiting for SSM Agent setup..."
+          aws ssm wait command-executed --instance-id "${{ env.INSTANCE_ID }}" --command-id "$COMMAND_ID"
+
+      - name: Setup and Configure GitHub Runner Using SSM
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets '[{"Key":"InstanceIds","Values":["${{ env.INSTANCE_ID }}"]}]' \
+            --parameters '{"commands":["sudo mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner",
+                                       "sudo curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz",
+                                       "sudo tar xzf ./actions-runner-linux-x64.tar.gz",
+                                       "sudo ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token \"${{ env.RUNNER_TOKEN }}\" --name \"${{ env.RUNNER_NAME }}\" --labels aws,ec2,linux,aosp-runner,android-build --work /home/ubuntu/runner_work --runnergroup Default",
+                                       "sudo nohup ./run.sh > runner.log 2>&1 &"]}' \
+            --query "Command.CommandId" --output text)
+      
+          echo "Waiting for runner setup..."
+          aws ssm wait command-executed --instance-id "${{ env.INSTANCE_ID }}" --command-id "$COMMAND_ID"
+
+  Compilation-on-self-hosted:
+    needs: setup-AWS-host-runner
+    runs-on: [self-hosted, aws, ec2, linux, aosp-runner, android-build]
+    steps:
+      - name: Debug Runner Name
+        run: |
+          echo "Using Runner Name: ${{ runner.name }}"
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      - name: Configure AWS Credentials
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set region us-east-1
+
+      - name: Launch New EC2 Instance for Build
+        id: launch-instance
+        run: |
+          INSTANCE_NAME="AOSP-Build-Instance-$(date +%Y%m%d%H%M%S)"
+          SUBNET_ID=$(aws ec2 describe-subnets --query 'Subnets[0].SubnetId' --output text)
+          INSTANCE_ID=$(aws ec2 run-instances --image-id ami-0f9de6e2d2f067fca \
+            --count 1 --instance-type t3.micro \
+            --key-name new-key \
+            --security-group-ids sg-04b81fc613de74b2a \
+            --subnet-id $SUBNET_ID \
+            --iam-instance-profile Name=EC2SSMRole \
+            --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$INSTANCE_NAME}]" \
+            --query "Instances[0].InstanceId" --output text)
+          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+          INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+          echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
+
+      - name: Wait for EC2 Instance to Start
+        run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+
+      - name: Verify and Install SSM Agent on Build Instance
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets '[{"Key":"InstanceIds","Values":["${{ env.INSTANCE_ID }}"]}]' \
+            --parameters '{"commands":["if systemctl status amazon-ssm-agent > /dev/null; then echo \"✅ SSM Agent is installed.\"; else",
+                                       "sudo yum install -y amazon-ssm-agent || sudo apt update && sudo apt install -y amazon-ssm-agent",
+                                       "sudo systemctl enable amazon-ssm-agent",
+                                       "sudo systemctl start amazon-ssm-agent",
+                                       "fi"]}' \
+            --query "Command.CommandId" --output text)
+
+          echo "Waiting for SSM Agent setup..."
+          aws ssm wait command-executed --instance-id "${{ env.INSTANCE_ID }}" --command-id "$COMMAND_ID"
+
+      - name: Execute AOSP Build via SSM
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets '[{"Key":"InstanceIds","Values":["${{ env.INSTANCE_ID }}"]}]' \
+            --parameters '{"commands":["echo \"Starting AOSP Build Process...\"",
+                                       "cd /home/ubuntu/aosp-source",
+                                       "source build/envsetup.sh",
+                                       "lunch aosp_arm64-userdebug",
+                                       "make -j$(nproc)",
+                                       "echo \"✅ AOSP Build Completed Successfully!\""]}' \
+            --query "Command.CommandId" --output text)
+
+          echo "Waiting for AOSP Build Completion..."
+          aws ssm wait command-executed --instance-id "${{ env.INSTANCE_ID }}" --command-id "$COMMAND_ID"
+
+
