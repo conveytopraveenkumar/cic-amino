@@ -123,14 +123,12 @@ jobs:
             --targets '[{"Key":"InstanceIds","Values":["${{ env.INSTANCE_ID }}"]}]' \
             --parameters '{"commands":["sudo apt update && sudo apt install -y unzip git curl jq awscli",
                                        "mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner",
-                                       "sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner",
                                        "sudo chmod -R 755 /home/ubuntu/actions-runner",
                                        "curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz",
                                        "tar xzf ./actions-runner-linux-x64.tar.gz",
-                                       "sudo -u ubuntu ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token \"${{ env.RUNNER_TOKEN }}\" --name \"${{ env.RUNNER_NAME }}\" --labels aws,ec2,linux,aosp-runner,android-build --work /home/ubuntu/runner_work --runnergroup Default | tee /home/ubuntu/github-runner-setup.log",
+                                       "sudo -u ssm-user ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token \"${{ env.RUNNER_TOKEN }}\" --name \"${{ env.RUNNER_NAME }}\" --labels aws,ec2,linux,aosp-runner,android-build --work /home/ubuntu/runner_work --runnergroup Default | tee /home/ubuntu/github-runner-setup.log",
                                        "sudo chmod +x /home/ubuntu/actions-runner/run.sh",
-                                       "sudo chown ubuntu:ubuntu /home/ubuntu/actions-runner/run.sh",
-                                       "sudo -u ubuntu nohup /home/ubuntu/actions-runner/run.sh > /home/ubuntu/runner.log 2>&1 &",
+                                       "sudo -u ssm-user nohup /home/ubuntu/actions-runner/run.sh > /home/ubuntu/runner.log 2>&1 &",
                                        "sleep 5",
                                        "ps aux | grep runner | tee /home/ubuntu/runner-process.log"]}' \
             --region us-east-1 \
