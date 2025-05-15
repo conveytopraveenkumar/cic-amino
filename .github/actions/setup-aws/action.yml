@@ -63,22 +63,23 @@ runs:
         done
       shell: bash
 
-    - name: Install AWS CLI + Setup GitHub Runner via SSM
-      run: |
-        aws ssm send-command \
-          --document-name "AWS-RunShellScript" \
-          --targets "[{\"Key\":\"instanceids\",\"Values\":[\"$INSTANCE_ID\"]}]" \
-          --parameters '{
-            "commands":[
-              "sudo apt update && sudo apt install -y unzip git curl jq awscli",
-              "sudo systemctl enable amazon-ssm-agent",
-              "sudo systemctl start amazon-ssm-agent",
-              "mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner",
-              "curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz",
-              "tar xzf ./actions-runner-linux-x64.tar.gz",
-              "./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token $RUNNER_TOKEN --name self-hosted-runner-$(date +%Y%m%d%H%M%S) --labels aws,ec2,linux,aosp-runner,android-build --work /home/ubuntu/runner_work --runnergroup Default",
-              "nohup ./run.sh > runner.log 2>&1 &"
-            ]
-          }' \
-          --region us-east-1
-      shell: bash
+  - name: Install AWS CLI + Setup GitHub Runner via SSM
+    run: |
+      aws ssm send-command \
+        --document-name "AWS-RunShellScript" \
+        --targets "[{\"Key\":\"instanceids\",\"Values\":[\"$INSTANCE_ID\"]}]" \
+        --parameters '{
+          "commands":[
+            "sudo apt update && sudo apt install -y unzip git curl jq awscli",
+            "sudo systemctl enable amazon-ssm-agent",
+            "sudo systemctl start amazon-ssm-agent",
+            "mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner",
+            "curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz",
+            "tar xzf ./actions-runner-linux-x64.tar.gz",
+            "sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner",
+            "sudo -u ubuntu ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token $RUNNER_TOKEN --name self-hosted-runner-$(date +%Y%m%d%H%M%S) --labels aws,ec2,linux,aosp-runner,android-build --work /home/ubuntu/runner_work --runnergroup Default",
+            "sudo -u ubuntu nohup ./run.sh > runner.log 2>&1 &"
+          ]
+        }' \
+        --region us-east-1
+    shell: bash
