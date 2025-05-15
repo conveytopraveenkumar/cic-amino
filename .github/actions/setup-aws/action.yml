@@ -1,86 +1,87 @@
-name: AWS Self-Hosted Runner Setup
+name: "Setup AWS"
+description: "Configures AWS credentials and launches an EC2 instance"
 
-on:
-  push:
-    branches:
-      - master
+inputs:
+  aws_access_key_id:
+    description: "AWS Access Key ID"
+    required: true
+  aws_secret_access_key:
+    description: "AWS Secret Access Key"
+    required: true
 
-jobs:
-  setup-aws-and-runner:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+outputs:
+  instance_id:
+    description: "EC2 Instance ID"
+    value: ${{ steps.get-instance-id.outputs.instance_id }}
 
-      - name: Configure AWS CLI
-        run: |
-          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws configure set region us-east-1
-        shell: bash
+runs:
+  using: "composite"
+  steps:
+    - name: Configure AWS CLI
+      run: |
+        aws configure set aws_access_key_id ${{ inputs.aws_access_key_id }}
+        aws configure set aws_secret_access_key ${{ inputs.aws_secret_access_key }}
+        aws configure set region us-east-1
+      shell: bash
 
-      - name: Install AWS CLI
-        run: |
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip awscliv2.zip
-          sudo ./aws/install
-          aws --version
-        shell: bash
+    - name: Install AWS CLI
+      run: |
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+        unzip awscliv2.zip
+        sudo ./aws/install
+        aws --version
+      shell: bash
 
-      - name: Launch EC2 Instance with SSM Role
-        id: launch-instance
-        run: |
-          INSTANCE_ID=$(aws ec2 run-instances --image-id ami-0f9de6e2d2f067fca \
-            --instance-type t3.micro --key-name new-key \
-            --security-group-ids sg-04b81fc613de74b2a \
-            --iam-instance-profile Name=EC2SSMInstanceProfile1 \
-            --query "Instances[0].InstanceId" --output text)
-          
-          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
-          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
-        shell: bash
+    - name: Launch EC2 Instance with SSM Role
+      id: get-instance-id
+      run: |
+        INSTANCE_ID=$(aws ec2 run-instances --image-id ami-0f9de6e2d2f067fca \
+          --instance-type t3.micro --key-name new-key \
+          --security-group-ids sg-04b81fc613de74b2a \
+          --iam-instance-profile Name=EC2SSMInstanceProfile1 \
+          --query "Instances[0].InstanceId" --output text)
 
-      - name: Wait for EC2 Instance to Start
-        run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
-        shell: bash
+        echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+        echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+      shell: bash
 
-      - name: Debug EC2 Instance ID
-        run: echo "Launched EC2 Instance: $INSTANCE_ID"
-        shell: bash
+    - name: Wait for EC2 Instance to Start
+      run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+      shell: bash
+   - name: Ensure EC2 Instance Is Fully Initialized
+      run: |
+        while true; do
+          INSTANCE_STATE=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].InstanceState.Name" --output text)
+          SYSTEM_STATUS=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].SystemStatus.Status" --output text)
+          INSTANCE_STATUS=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query "InstanceStatuses[0].InstanceStatus.Status" --output text)
+          echo "Current State: $INSTANCE_STATE | System Status: $SYSTEM_STATUS | Instance Status: $INSTANCE_STATUS"
+          if [[ "$INSTANCE_STATE" == "running" && "$SYSTEM_STATUS" == "ok" && "$INSTANCE_STATUS" == "ok" ]]; then
+            echo "Instance is fully initialized!"
+            break
+          fi
+          sleep 10
+        done
+      shell: bash
+    - name: Debug EC2 Instance ID
+      run: echo "Launched EC2 Instance: $INSTANCE_ID"
+      shell: bash
 
-      - name: Fetch GitHub Runner Token
-        id: get-token
-        run: |
-          RUNNER_TOKEN=$(curl -X POST -H "Authorization: Bearer ${{ secrets.SELF_HOSTED_PAT }}" \
-          -H "Accept: application/vnd.github+json" \
-          https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/registration-token | jq -r '.token')
-          echo "RUNNER_TOKEN=$RUNNER_TOKEN" >> $GITHUB_ENV
-        shell: bash
-
-      - name: Generate Dynamic Runner Name
-        id: set-runner-name
-        run: |
-          RUNNER_NAME="self-hosted-runner-$(date +%Y%m%d%H%M%S)"
-          echo "RUNNER_NAME=$RUNNER_NAME" >> $GITHUB_ENV
-          echo "runner_name=$RUNNER_NAME" >> $GITHUB_OUTPUT
-        shell: bash
-
-      - name: Install AWS CLI + Setup GitHub Runner via SSM
-        run: |
-          aws ssm send-command \
-            --document-name "AWS-RunShellScript" \
-            --targets "[{\"Key\":\"instanceids\",\"Values\":[\"$INSTANCE_ID\"]}]" \
-            --parameters '{
-              "commands":[
-                "sudo apt update && sudo apt install -y unzip curl jq git",
-                "sudo systemctl enable amazon-ssm-agent",
-                "sudo systemctl start amazon-ssm-agent",
-                "mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner",
-                "curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz",
-                "tar xzf ./actions-runner-linux-x64.tar.gz",
-                "./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token $RUNNER_TOKEN --name $RUNNER_NAME --labels aws,ec2,linux,aosp-runner,android-build --work /home/ubuntu/runner_work --runnergroup Default",
-                "nohup ./run.sh > runner.log 2>&1 &"
-              ]
-            }' \
-            --region us-east-1
-        shell: bash
+    - name: Install AWS CLI + Setup GitHub Runner via SSM
+      run: |
+        aws ssm send-command \
+          --document-name "AWS-RunShellScript" \
+          --targets "[{\"Key\":\"instanceids\",\"Values\":[\"$INSTANCE_ID\"]}]" \
+          --parameters '{
+            "commands":[
+              "sudo apt update && sudo apt install -y unzip curl jq git",
+              "sudo systemctl enable amazon-ssm-agent",
+              "sudo systemctl start amazon-ssm-agent",
+              "mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner",
+              "curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz",
+              "tar xzf ./actions-runner-linux-x64.tar.gz",
+              "./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token $RUNNER_TOKEN --name self-hosted-runner-$(date +%Y%m%d%H%M%S) --labels aws,ec2,linux,aosp-runner,android-build --work /home/ubuntu/runner_work --runnergroup Default",
+              "nohup ./run.sh > runner.log 2>&1 &"
+            ]
+          }' \
+          --region us-east-1
+      shell: bash
