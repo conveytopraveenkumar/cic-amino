@@ -76,7 +76,9 @@ jobs:
           echo "RUNNER_TOKEN=$RUNNER_TOKEN" >> $GITHUB_ENV
       - name: Install AWS CLI on GitHub Actions Runner
         run: |
-         sudo apt update && sudo apt install -y awscli
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip -o awscliv2.zip
+          sudo ./aws/install --update
           aws --version
 
       - name: Verify and Install SSM Agent on EC2
