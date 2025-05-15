@@ -4,14 +4,13 @@ on:
   push:
     branches:
       - master
-
 jobs:
   setup-aws:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
-  
+
       - name: Setup AWS
         uses: ./.github/actions/setup-aws
         with:
@@ -22,18 +21,15 @@ jobs:
     needs: setup-aws
     runs-on: [self-hosted, aws, ec2, linux, aosp-runner, android-build]
     steps:
-      - name: Debug Runner Name
-        run: echo "Using Runner Name:${{ needs.setup-github-runner.outputs.runner_name }}"
-  
       - name: Checkout Repository
         uses: actions/checkout@v3
-  
+
       - name: Configure AWS Credentials
         run: |
           aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws configure set region us-east-1
-  
+
       - name: Build AOSP Project
         run: |
           mkdir -p /home/ubuntu/build-output
