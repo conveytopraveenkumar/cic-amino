@@ -18,21 +18,8 @@ jobs:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-  setup-github-runner:
-    needs: setup-aws
-    runs-on: ubuntu-latest
-    steps:
-     - name: Checkout Repository
-       uses: actions/checkout@v3
-
-     - name: Setup GitHub Runner
-       uses: ./.github/actions/setup-github-runner
-       with:
-         instance_id: ${{ needs.setup-aws.outputs.instance_id }}
-         self_hosted_pat: ${{ secrets.SELF_HOSTED_PAT }}
-
   aosp-build:
-    needs: setup-github-runner
+    needs: setup-aws
     runs-on: [self-hosted, aws, ec2, linux, aosp-runner, android-build]
     steps:
       - name: Debug Runner Name
