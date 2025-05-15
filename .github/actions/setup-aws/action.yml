@@ -69,7 +69,7 @@ runs:
       run: |
         aws ssm send-command \
         --document-name "AWS-RunShellScript" \
-        --targets "[{\"Key\":\"instanceids\",\"Values\":[\"i-0b7f95d37537be83a\"]}]" \
+        --targets "[{\"Key\":\"instanceids\",\"Values\":[\"$INSTANCE_ID\"]}]" \
         --parameters '{
           "commands":[
             "sudo apt update && sudo apt install -y unzip git curl jq awscli",
