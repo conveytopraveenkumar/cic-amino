@@ -12,10 +12,10 @@ inputs:
 outputs:
   instance_id:
     description: "Instance ID"
-    value: ${{ steps.start-ec2.outputs.instance_id }}
+    value: ${{ env.INSTANCE_ID }}
   instance_ip:
     description: "Instance IP"
-    value: ${{ steps.start-ec2.outputs.instance_ip }}
+    value: ${{ env.INSTANCE_IP }}
   runner_name:
     description: "Runner Name"
     value: ${{ env.RUNNER_NAME }}
