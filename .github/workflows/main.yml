@@ -3,22 +3,21 @@ name: Main Workflow
 on:
   push:
     branches:
-      - master
+      - dev2
 
 jobs:
   launch-ec2:
-    uses: ./.github/workflows/launch-ec2.yml
-    with:
-      aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }
+    uses: ./.github/workflows/launch-ec2.yaml
 
-  setup-self-hosted-runner:
+  setup-runner:
     needs: launch-ec2
-    uses: ./.github/workflows/setup-self-hosted-runner.yml
+    uses: ./.github/workflows/setup-runner.yaml
     with:
-      instance_id: ${{ needs.launch-ec2.outputs.instance_id }}
       instance_ip: ${{ needs.launch-ec2.outputs.instance_ip }}
+      instance_id: ${{ needs.launch-ec2.outputs.instance_id }}
 
-  Compilation-on-self-hosted:
-    needs: setup-self-hosted-runner
-    uses: ./.github/workflows/compilation-on-self-hosted.yml
+  build:
+    needs: setup-runner
+    uses: ./.github/workflows/build.yaml
+    with:
+      instance_id: ${{ needs.setup-runner.inputs.instance_id }}
