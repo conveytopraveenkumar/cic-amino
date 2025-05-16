@@ -23,6 +23,9 @@ jobs:
     needs: launch-ec2
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
       - name: Setup GitHub Runner
         uses: ./.github/actions/setup-runner
         with:
@@ -33,6 +36,9 @@ jobs:
     needs: setup-runner
     runs-on: [self-hosted, aws, ec2, linux, aosp-runner, android-build]
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
       - name: Run Build
         uses: ./.github/actions/build
         with:
