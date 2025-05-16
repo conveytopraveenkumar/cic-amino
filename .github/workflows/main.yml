@@ -31,6 +31,8 @@ jobs:
         with:
           instance_id: ${{ needs.launch-ec2.outputs.instance_id }}
           github_token: ${{ secrets.SELF_HOSTED_PAT }}
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
   build:
     needs: setup-github-runner
