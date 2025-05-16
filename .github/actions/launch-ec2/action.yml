@@ -8,9 +8,7 @@ inputs:
   aws_secret_access_key:
     required: true
     description: AWS Secret Access Key
-
 outputs:
-  outputs:
   instance_id:
     description: "Instance ID"
     value: ${{ steps.start-ec2.outputs.instance_id }}
