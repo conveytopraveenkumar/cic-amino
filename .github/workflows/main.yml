@@ -9,8 +9,11 @@ jobs:
   launch-ec2:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
       - name: Launch EC2 Instance
-        uses: ./.github/actions/setup-aws
+        uses: ./.github/actions/launch-ec2
         id: launch
         with:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
