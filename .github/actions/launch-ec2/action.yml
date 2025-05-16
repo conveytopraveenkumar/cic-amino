@@ -66,11 +66,6 @@ runs:
         echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
         echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
         echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
-
-    - name: Save Instance ID to File
-      run: |
-        echo "${{ needs.launch-ec2.outputs.instance_id }}" > instance_id.txt
-      shell: bash
     - name: Debug Instance ID
       run: |
         echo "EC2 Instance launched with ID: ${INSTANCE_ID}"
