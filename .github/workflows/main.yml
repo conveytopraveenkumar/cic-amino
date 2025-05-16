@@ -8,6 +8,9 @@ on:
 jobs:
   launch-ec2:
     uses: ./.github/workflows/launch-ec2.yml
+    with:
+      aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }
 
   setup-self-hosted-runner:
     needs: launch-ec2
