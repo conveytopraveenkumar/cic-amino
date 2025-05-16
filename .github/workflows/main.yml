@@ -18,4 +18,4 @@ jobs:
 
   Compilation-on-self-hosted:
     needs: setup-self-hosted-runner
-    uses: ./.github/workflows/Compilation-on-self-hosted.yml
+    uses: ./.github/workflows/compilation-on-self-hosted.yml
