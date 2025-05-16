@@ -16,6 +16,6 @@ jobs:
       instance_id: ${{ needs.launch-ec2.outputs.instance_id }}
       instance_ip: ${{ needs.launch-ec2.outputs.instance_ip }}
 
-  aosp-build:
+  Compilation-on-self-hosted:
     needs: setup-self-hosted-runner
-    uses: ./.github/workflows/aosp-build.yml
+    uses: ./.github/workflows/Compilation-on-self-hosted.yml
