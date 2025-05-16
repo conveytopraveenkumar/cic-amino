@@ -2,13 +2,6 @@ name: Launch EC2 Instance
 
 on:
   workflow_call:
-    inputs:
-      aws_access_key_id:
-        required: true
-        type: string
-      aws_secret_access_key:
-        required: true
-        type: string
 
 jobs:
   launch-ec2:
@@ -19,9 +12,10 @@ jobs:
     steps:
       - name: Set up AWS Credentials
         run: |
-          aws configure set aws_access_key_id ${{ inputs.aws_access_key_id }}
-          aws configure set aws_secret_access_key ${{ inputs.aws_secret_access_key }}
+          aws configure set aws_access_key_id ${{ env.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws configure set region us-east-1
+
           
       - name: Install AWS CLI
         run: |
