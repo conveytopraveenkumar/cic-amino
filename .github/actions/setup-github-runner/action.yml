@@ -92,6 +92,9 @@ runs:
 
     - name: Install AWS CLI via SSM on EC2
       run: |
+        export AWS_ACCESS_KEY_ID=${{ inputs.aws_access_key_id }}
+        export AWS_SECRET_ACCESS_KEY=${{ inputs.aws_secret_access_key }}
+        export AWS_DEFAULT_REGION="us-east-1"
         COMMAND_ID=$(aws ssm send-command \
           --document-name "AWS-RunShellScript" \
           --targets '[{"Key":"InstanceIds","Values":["${{ inputs.instance_id }}"]}]' \
@@ -108,6 +111,9 @@ runs:
 
     - name: Install SSM Agent via AWS SSM on EC2
       run: |
+        export AWS_ACCESS_KEY_ID=${{ inputs.aws_access_key_id }}
+        export AWS_SECRET_ACCESS_KEY=${{ inputs.aws_secret_access_key }}
+        export AWS_DEFAULT_REGION="us-east-1"
         COMMAND_ID=$(aws ssm send-command \
           --document-name "AWS-RunShellScript" \
           --targets '[{"Key":"InstanceIds","Values":["${{ inputs.instance_id }}"]}]' \
@@ -124,6 +130,9 @@ runs:
 
     - name: Verify SSM Agent Installation
       run: |
+        export AWS_ACCESS_KEY_ID=${{ inputs.aws_access_key_id }}
+        export AWS_SECRET_ACCESS_KEY=${{ inputs.aws_secret_access_key }}
+        export AWS_DEFAULT_REGION="us-east-1"
         aws ssm send-command \
           --document-name "AWS-RunShellScript" \
           --targets '[{"Key":"InstanceIds","Values":["${{ inputs.instance_id }}"]}]' \
@@ -133,6 +142,9 @@ runs:
 
     - name: Setup and Configure GitHub Runner Using SSM
       run: |
+        export AWS_ACCESS_KEY_ID=${{ inputs.aws_access_key_id }}
+        export AWS_SECRET_ACCESS_KEY=${{ inputs.aws_secret_access_key }}
+        export AWS_DEFAULT_REGION="us-east-1"
         COMMAND_ID=$(aws ssm send-command \
           --document-name "AWS-RunShellScript" \
           --targets '[{"Key":"InstanceIds","Values":["${{ inputs.instance_id }}"]}]' \
