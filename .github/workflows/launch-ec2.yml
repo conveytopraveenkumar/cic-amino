@@ -1,20 +1,27 @@
 name: Launch EC2 Instance
 
 on:
-  workflow_call:  # This allows the workflow to be triggered from other workflows
+  workflow_call:
+    inputs:
+      aws_access_key_id:
+        required: true
+        type: string
+      aws_secret_access_key:
+        required: true
+        type: string
 
 jobs:
   launch-ec2:
     runs-on: ubuntu-latest
+    outputs:
+      instance_id: ${{ steps.launch-instance.outputs.instance_id }}
+      instance_ip: ${{ steps.launch-instance.outputs.instance_ip }}
     steps:
       - name: Set up AWS Credentials
         run: |
-          echo "Setting up AWS credentials"
-          aws configure set aws_access_key_id "${{ secrets.AWS_ACCESS_KEY_ID }}"
-          aws configure set aws_secret_access_key "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          aws configure set aws_access_key_id ${{ inputs.aws_access_key_id }}
+          aws configure set aws_secret_access_key ${{ inputs.aws_secret_access_key }}
           aws configure set region us-east-1
-          echo "AWS Access Key ID: ${{ secrets.AWS_ACCESS_KEY_ID }}"
-          echo "AWS Secret Access Key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}"
           
       - name: Install AWS CLI
         run: |
@@ -22,17 +29,12 @@ jobs:
           unzip awscliv2.zip
           sudo ./aws/install --update
           aws --version
-          
-      - name: Get Subnet ID
-        id: get-subnet-id
-        run: |
-          SUBNET_ID=$(aws ec2 describe-subnets --region us-east-1 --query 'Subnets[0].SubnetId' --output text)
-          echo "SUBNET_ID=$SUBNET_ID" >> $GITHUB_ENV
 
       - name: Launch EC2 Instance
         id: launch-instance
         run: |
           INSTANCE_NAME="AOSP-Build-Instance-$(date +%Y%m%d%H%M%S)"
+          SUBNET_ID=$(aws ec2 describe-subnets --query 'Subnets[0].SubnetId' --output text)
           INSTANCE_ID=$(aws ec2 run-instances \
             --image-id ami-0f9de6e2d2f067fca \
             --instance-type t3.micro \
