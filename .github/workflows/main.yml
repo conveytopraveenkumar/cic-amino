@@ -30,7 +30,7 @@ jobs:
         
         - name: Debug Instance ID Before Passing to Runner
           run: |
-            echo "Instance ID received from launch-ec2: '${{ needs.start-ec2.outputs.instance_id }}'"
+            echo "Instance ID received from launch-ec2: '${{ needs.launch-ec2.outputs.instance_id }}'"
             if [[ -z "${{ needs.launch-ec2.outputs.instance_id }}" ]]; then
               echo "❌ ERROR: Instance ID is missing!"
               exit 1
