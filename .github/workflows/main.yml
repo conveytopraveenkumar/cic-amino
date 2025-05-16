@@ -14,7 +14,7 @@ jobs:
       
       - name: Launch EC2 Instance
         uses: ./.github/actions/launch-ec2
-        id: launch
+        id: start-ec2
         with:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -22,13 +22,15 @@ jobs:
   setup-github-runner:
       needs: launch-ec2
       runs-on: ubuntu-latest
+      outputs:
+       instance_id: ${{ steps.start-ec2.outputs.instance_id }}
       steps:
         - name: Checkout Repository
           uses: actions/checkout@v3
         
         - name: Debug Instance ID Before Passing to Runner
           run: |
-            echo "Instance ID received from launch-ec2: '${{ needs.launch-ec2.outputs.instance_id }}'"
+            echo "Instance ID received from launch-ec2: '${{ needs.start-ec2.outputs.instance_id }}'"
             if [[ -z "${{ needs.launch-ec2.outputs.instance_id }}" ]]; then
               echo "❌ ERROR: Instance ID is missing!"
               exit 1
