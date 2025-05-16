@@ -63,12 +63,19 @@ runs:
           --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$RUNNER_NAME}]" \
           --query "Instances[0].InstanceId" --output text)
         INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
-
         echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
         echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
         echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
         echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
 
+    - name: Save Instance ID to File
+      run: |
+        echo "${{ needs.launch-ec2.outputs.instance_id }}" > instance_id.txt
+      shell: bash
+    - name: Debug Instance ID
+      run: |
+        echo "EC2 Instance launched with ID: ${INSTANCE_ID}"
+      shell: bash
     - name: Wait for EC2 Instance to Start
       shell: bash
       run: |
