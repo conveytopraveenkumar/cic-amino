@@ -54,4 +54,4 @@ jobs:
       - name: Run Build
         uses: ./.github/actions/build
         with:
-          instance_id: ${{ needs.setup-github-runner.inputs.instance_id }}
+          instance_id: ${{ needs.setup-github-runner.inputs.runner_name }}
