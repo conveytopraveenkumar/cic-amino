@@ -39,9 +39,18 @@ runs:
         echo "RUNNER_TOKEN=$RUNNER_TOKEN" >> $GITHUB_ENV
       shell: bash
 
+    - name: Debug Instance ID
+      run: |
+        echo "Instance ID before SSM: '${{ inputs.instance_id }}'"
+        if [[ -z "${{ inputs.instance_id }}" ]]; then
+          echo "❌ ERROR: Instance ID is missing!"
+          exit 1
+        fi
+      shell: bash
+
     - name: Start AWS SSM Session
       run: |
-        INSTANCE_ID=${{ needs.launch-ec2.outputs.instance_id }}
+        INSTANCE_ID=${{ inputs.instance_id }}
         echo "Starting SSM session for instance ID: $INSTANCE_ID"
         
         # Ensure the instance ID is not empty
