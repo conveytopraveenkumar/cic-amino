@@ -11,13 +11,13 @@ jobs:
 
   setup-runner:
     needs: launch-ec2
-    uses: ./.github/workflows/setup-runner.yaml
+    uses: ./.github/workflows/setup-self-hosted-runner.yml
     with:
       instance_ip: ${{ needs.launch-ec2.outputs.instance_ip }}
       instance_id: ${{ needs.launch-ec2.outputs.instance_id }}
 
   build:
     needs: setup-runner
-    uses: ./.github/workflows/build.yaml
+    uses: ./.github/workflows/compilation-on-self-hosted.yml
     with:
       instance_id: ${{ needs.setup-runner.inputs.instance_id }}
