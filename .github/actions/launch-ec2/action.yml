@@ -92,3 +92,6 @@ runs:
           fi
           sleep 10
         done
+    - name:  Instance ID Details
+      run: |
+      echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
