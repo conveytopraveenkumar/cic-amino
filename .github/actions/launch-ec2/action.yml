@@ -92,6 +92,9 @@ runs:
           fi
           sleep 10
         done
-    - name:  Instance ID Details
+    - name: Instance ID Details
+      shell: bash
       run: |
-      echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+        echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+        echo "instance_id=$INSTANCE_ID" >> $GITHUB_ENV
+        
