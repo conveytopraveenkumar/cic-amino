@@ -90,4 +90,5 @@ runs:
       run: |
         echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
         echo "instance_id=$INSTANCE_ID" >> $GITHUB_ENV
+        echo "EC2 instance created: $INSTANCE_ID"
         
