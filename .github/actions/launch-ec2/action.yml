@@ -10,9 +10,10 @@ inputs:
     description: AWS Secret Access Key
 
 outputs:
+  outputs:
   instance_id:
     description: "Instance ID"
-    value: ${{ env.INSTANCE_ID }}
+    value: ${{ steps.start-ec2.outputs.instance_id }}
   instance_ip:
     description: "Instance IP"
     value: ${{ env.INSTANCE_IP }}
