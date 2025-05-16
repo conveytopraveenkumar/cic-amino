@@ -41,8 +41,24 @@ runs:
 
     - name: Start AWS SSM Session
       run: |
-        SESSION_ID=$(aws ssm start-session --target "${{ inputs.instance_id }}" --region us-east-1)
-        echo "SSM session started with ID: $SESSION_ID"
+        INSTANCE_ID=${{ needs.launch-ec2.outputs.instance_id }}
+        echo "Starting SSM session for instance ID: $INSTANCE_ID"
+        
+        # Ensure the instance ID is not empty
+        if [ -z "$INSTANCE_ID" ]; then
+          echo "Instance ID is not set properly!"
+          exit 1
+        fi
+        
+        # Start the SSM session
+        SESSION_ID=$(aws ssm start-session --target "$INSTANCE_ID" --region us-east-1)
+        
+        if [ $? -eq 0 ]; then
+          echo "SSM session started successfully with ID: $SESSION_ID"
+        else
+          echo "Failed to start SSM session"
+          exit 1
+        fi
       shell: bash
 
     - name: Install AWS CLI via SSM on EC2
