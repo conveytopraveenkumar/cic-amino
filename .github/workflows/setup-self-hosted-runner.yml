@@ -1,0 +1,108 @@
+name: Setup Self-Hosted Runner
+
+on:
+  workflow_call:
+    inputs:
+      instance_id:
+        required: true
+        type: string
+      instance_ip:
+        required: true
+        type: string
+
+jobs:
+  setup-runner:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up AWS Credentials
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set region us-east-1
+
+      - name: Fetch GitHub Runner Token
+        id: get-token
+        run: |
+          RUNNER_TOKEN=$(curl -X POST -H "Authorization: Bearer ${{ secrets.SELF_HOSTED_PAT }}" \
+          -H "Accept: application/vnd.github+json" \
+          https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/registration-token | jq -r '.token')
+          echo "RUNNER_TOKEN=$RUNNER_TOKEN" >> $GITHUB_ENV
+      - name: Start AWS SSM Session
+        run: |
+          SESSION_ID=$(aws ssm start-session --target "${{ env.INSTANCE_ID }}" --region us-east-1)
+          echo "SSM session started with ID: $SESSION_ID"
+      - name: Install AWS CLI via SSM on EC2
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets '[{"Key":"InstanceIds","Values":["${{ env.INSTANCE_ID }}"]}]' \
+            --parameters '{"commands":["if command -v aws > /dev/null; then echo \"✅ AWS CLI is installed.\"; else",
+                                       "sudo apt update && sudo apt install -y awscli",
+                                       "aws --version",
+                                       "fi"]}' \
+            --region us-east-1 \
+            --query "Command.CommandId" --output text)
+      
+          echo "Waiting for AWS CLI installation..."
+          aws ssm wait command-executed --instance-id "${{ env.INSTANCE_ID }}" --command-id "$COMMAND_ID"
+          
+      - name: Install SSM Agent via AWS SSM on EC2
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets '[{"Key":"InstanceIds","Values":["${{ env.INSTANCE_ID }}"]}]' \
+            --parameters '{"commands":["sudo apt update && sudo apt install -y amazon-ssm-agent",
+                                       "sudo systemctl enable amazon-ssm-agent",
+                                       "sudo systemctl start amazon-ssm-agent",
+                                       "amazon-ssm-agent --version | tee /home/ubuntu/ssm-install.log"]}' \
+            --region us-east-1 \
+            --query "Command.CommandId" --output text)
+      
+          echo "Waiting for SSM Agent installation..."
+          aws ssm wait command-executed --instance-id "${{ env.INSTANCE_ID }}" --command-id "$COMMAND_ID"
+    
+      - name: Verify SSM Agent Installation
+        run: |
+          aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets '[{"Key":"InstanceIds","Values":["${{ env.INSTANCE_ID }}"]}]' \
+            --parameters '{"commands":["cat /home/ubuntu/ssm-install.log"]}' \
+            --region us-east-1
+      - name: Setup and Configure GitHub Runner Using SSM
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets '[{"Key":"InstanceIds","Values":["${{ env.INSTANCE_ID }}"]}]' \
+            --parameters '{"commands":[
+              "export DEBIAN_FRONTEND=noninteractive",
+              "sudo apt-get update -yq",
+              "sudo apt-get install -yq unzip git curl jq awscli",
+              "mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner",
+              "touch /home/ubuntu/actions-runner/ssm-command.log",
+              "sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner",
+              "sudo chmod -R 755 /home/ubuntu/actions-runner",
+              "if [ -f /home/ubuntu/actions-runner/.env ]; then sudo chmod 644 /home/ubuntu/actions-runner/.env; fi",
+              "if [ -f /home/ubuntu/actions-runner/.path ]; then sudo chmod 644 /home/ubuntu/actions-runner/.path; fi",
+              "curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz",
+              "tar xzf actions-runner-linux-x64.tar.gz",
+              "sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner",
+              "sudo chmod +x /home/ubuntu/actions-runner/config.sh",
+              "sudo -u ubuntu ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token \"${{ env.RUNNER_TOKEN }}\" --name \"${{ env.RUNNER_NAME }}\" --labels aws,ec2,linux,aosp-runner,android-build --work /home/ubuntu/runner_work --runnergroup Default > /home/ubuntu/actions-runner/github-runner-setup.log 2>&1",
+              "sudo chmod +x /home/ubuntu/actions-runner/run.sh",
+              "sudo chown ubuntu:ubuntu /home/ubuntu/actions-runner/run.sh",
+              "sudo -u ubuntu nohup ./run.sh > /home/ubuntu/actions-runner/runner.log 2>&1 &",
+              "sleep 10",
+              "ps aux | grep actions-runner > /home/ubuntu/actions-runner/runner-process.log"
+            ]}' \
+            --region us-east-1 \
+            --query "Command.CommandId" --output text)
+      
+          echo "Waiting for runner setup..."
+          aws ssm wait command-executed --instance-id "${{ env.INSTANCE_ID }}" --command-id "$COMMAND_ID"
+      
+          echo "Fetching logs..."
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ env.INSTANCE_ID }}" \
+            --region us-east-1 \
+            --output text
