@@ -3,7 +3,7 @@ name: Main Workflow
 on:
   push:
     branches:
-      - dev2
+      - master
 
 jobs:
   launch-ec2:
