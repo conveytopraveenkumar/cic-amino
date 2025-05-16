@@ -7,17 +7,30 @@ on:
 
 jobs:
   launch-ec2:
-    uses: ./.github/workflows/launch-ec2.yml
+    runs-on: ubuntu-latest
+    steps:
+      - name: Launch EC2 Instance
+        uses: ./.github/actions/launch-ec2
+        id: launch
+        with:
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
   setup-runner:
     needs: launch-ec2
-    uses: ./.github/workflows/setup-self-hosted-runner.yml
-    with:
-      instance_ip: ${{ needs.launch-ec2.outputs.instance_ip }}
-      instance_id: ${{ needs.launch-ec2.outputs.instance_id }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup GitHub Runner
+        uses: ./.github/actions/setup-runner
+        with:
+          instance_id: ${{ needs.launch-ec2.outputs.instance_id }}
+          github_token: ${{ secrets.SELF_HOSTED_PAT }}
 
   build:
     needs: setup-runner
-    uses: ./.github/workflows/compilation-on-self-hosted.yml
-    with:
-      instance_id: ${{ needs.setup-runner.inputs.instance_id }}
+    runs-on: [self-hosted, aws, ec2, linux, aosp-runner, android-build]
+    steps:
+      - name: Run Build
+        uses: ./.github/actions/build
+        with:
+          instance_id: ${{ needs.setup-runner.inputs.instance_id }}
