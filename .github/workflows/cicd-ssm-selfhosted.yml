@@ -3,7 +3,7 @@ name: AWS Self-Hosted Runner & AOSP Build
 on:
   push:
     branches:
-      - master
+      - dev2
 
 jobs:
   setup-AWS-host-runner:
