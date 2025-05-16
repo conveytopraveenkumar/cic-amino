@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Launch EC2 Instance
-        uses: ./.github/actions/launch-ec2
+        uses: ./.github/actions/setup-aws
         id: launch
         with:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
