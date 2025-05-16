@@ -12,10 +12,10 @@ inputs:
 outputs:
   instance_id:
     description: "Instance ID"
-    value: ${{ env.INSTANCE_ID }}
+    value: ${{ steps.start-ec2.outputs.instance_id }}
   instance_ip:
     description: "Instance IP"
-    value: ${{ env.INSTANCE_IP }}
+    value: ${{ steps.start-ec2.outputs.instance_ip }}
   runner_name:
     description: "Runner Name"
     value: ${{ env.RUNNER_NAME }}
@@ -71,6 +71,7 @@ runs:
     - name: Wait for EC2 Instance to Start
       shell: bash
       run: |
+        INSTANCE_ID=$INSTANCE_ID
         aws ec2 wait instance-running --instance-ids $INSTANCE_ID
 
     - name: Ensure EC2 Instance Is Fully Initialized
