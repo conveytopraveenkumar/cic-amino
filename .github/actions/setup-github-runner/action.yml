@@ -50,7 +50,12 @@ runs:
           export AWS_SECRET_ACCESS_KEY=${{ inputs.aws_secret_access_key }}
           export AWS_DEFAULT_REGION="us-east-1"
     
-          INSTANCE_ID=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].InstanceId" --output text | tail -n1)
+          INSTANCE_ID=$(aws ec2 describe-instances \
+          --filters "Name=tag:Name,Values=GitHubRunner" \
+          --query "Reservations[*].Instances[*].{ID:InstanceId,LaunchTime:LaunchTime}" \
+          --output json | jq -r 'sort_by(.LaunchTime) | reverse | .[0].ID')
+
+
           
           if [[ -z "$INSTANCE_ID" ]]; then
             echo "❌ ERROR: Failed to retrieve Instance ID!"
@@ -64,6 +69,9 @@ runs:
     
     - name: Start AWS SSM Session
       run: |
+        export AWS_ACCESS_KEY_ID=${{ inputs.aws_access_key_id }}
+        export AWS_SECRET_ACCESS_KEY=${{ inputs.aws_secret_access_key }}
+        export AWS_DEFAULT_REGION="us-east-1"
         INSTANCE_ID=${{ env.INSTANCE_ID }}  # ✅ Reference from environment variable
         echo "Starting SSM session for instance ID: $INSTANCE_ID"
     
