@@ -19,7 +19,7 @@ jobs:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-  setup-runner:
+  setup-github-runner:
     needs: launch-ec2
     runs-on: ubuntu-latest
     steps:
@@ -42,4 +42,4 @@ jobs:
       - name: Run Build
         uses: ./.github/actions/build
         with:
-          instance_id: ${{ needs.setup-runner.inputs.instance_id }}
+          instance_id: ${{ needs.setup-github-runner.inputs.instance_id }}
