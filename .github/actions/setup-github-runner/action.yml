@@ -39,22 +39,20 @@ runs:
         echo "RUNNER_TOKEN=$RUNNER_TOKEN" >> $GITHUB_ENV
       shell: bash
 
-    - name: Debug Instance ID in runner.yml
+    - name: Retrieve Latest Instance ID from AWS
       run: |
-        echo "Instance ID received in runner.yml: '${{ inputs.instance_id }}'"
-        if [[ -z "${{ inputs.instance_id }}" ]]; then
-          echo "❌ ERROR: Instance ID is missing in runner.yml! Attempting to retrieve from AWS..."
-          
-          INSTANCE_ID=$(aws ec2 describe-instances \
-            --query "Reservations[*].Instances[*].InstanceId" --output text | tail -n1)
+        export AWS_DEFAULT_REGION="us-east-1"
     
-          echo "Instance ID retrieved from AWS: $INSTANCE_ID"
-          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+        INSTANCE_ID=$(aws ec2 describe-instances \
+          --query "Reservations[*].Instances[*].InstanceId" \
+          --output text | tail -n1)
     
-          if [[ -z "$INSTANCE_ID" ]]; then
-            echo "❌ ERROR: Failed to retrieve Instance ID!"
-            exit 1
-          fi
+        echo "Instance ID retrieved from AWS: $INSTANCE_ID"
+        echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+    
+        if [[ -z "$INSTANCE_ID" ]]; then
+          echo "❌ ERROR: Failed to retrieve Instance ID!"
+          exit 1
         fi
       shell: bash
 
