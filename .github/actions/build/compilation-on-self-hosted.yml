@@ -1,0 +1,18 @@
+name: Run AOSP Build
+description: Runs the AOSP build process.
+
+inputs:
+  instance_id:
+    required: true
+    description: EC2 Instance ID
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Start Build Process
+      run: |
+        echo "Starting AOSP Build on ${{ inputs.instance_id }}"
+      shell: bash
