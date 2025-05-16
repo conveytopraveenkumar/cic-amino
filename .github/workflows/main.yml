@@ -8,6 +8,8 @@ on:
 jobs:
   launch-ec2:
     runs-on: ubuntu-latest
+    outputs:
+       instance_id: ${{ steps.start-ec2.outputs.instance_id }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -22,8 +24,6 @@ jobs:
   setup-github-runner:
       needs: launch-ec2
       runs-on: ubuntu-latest
-      outputs:
-       instance_id: ${{ steps.start-ec2.outputs.instance_id }}
       steps:
         - name: Checkout Repository
           uses: actions/checkout@v3
