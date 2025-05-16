@@ -1,41 +1,18 @@
-name: AWS Self-Hosted Runner & AOSP Build
+name: Main Workflow
 
 on:
   push:
     branches:
-      - dev
+      - master
 
 jobs:
-  setup-aws:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+  launch-ec2:
+    uses: ./.github/workflows/launch-ec2.yml
 
-      - name: Setup AWS
-        uses: ./.github/actions/setup-aws
-        with:
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          self_hosted_pat: ${{ secrets.SELF_HOSTED_PAT }}
+  setup-self-hosted-runner:
+    needs: launch-ec2
+    uses: ./.github/workflows/setup-self-hosted-runner.yml
 
   aosp-build:
-    needs: setup-aws
-    runs-on: [self-hosted, aws, ec2, linux, aosp-runner, android-build]
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Configure AWS Credentials
-        run: |
-          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws configure set region us-east-1
-
-      - name: Build AOSP Project
-        run: |
-          source build/envsetup.sh
-          lunch aosp_arm-eng
-          make -j$(nproc)
-          mkdir -p /home/ubuntu/build-output
-          echo "Build successful!" > /home/ubuntu/build-output/result.txt
+    needs: setup-self-hosted-runner
+    uses: ./.github/workflows/aosp-build.yml
