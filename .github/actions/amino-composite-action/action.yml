@@ -22,7 +22,7 @@ inputs:
   self_hosted_pat:
     required: true
     type: string
-   aws_access_key_id:
+  aws_access_key_id:
     required: true
     description: AWS Access Key ID
   aws_secret_access_key:
