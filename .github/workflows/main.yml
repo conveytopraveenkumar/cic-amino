@@ -45,6 +45,7 @@ jobs:
           manifest_url: "${{ env.MANIFEST_URL }}"
           branch: "${{ env.BRANCH }}"
           build_commands: "${{ env.BUILD_COMMANDS }}"
+          self_hosted_pat: ${{ secrets.SELF_HOSTED_PAT }}
 
   compilation_on_runner:
     needs: environment_setup
