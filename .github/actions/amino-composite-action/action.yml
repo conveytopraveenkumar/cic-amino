@@ -43,7 +43,7 @@ runs:
       run: |
         aws configure set aws_access_key_id ${{ inputs.aws_access_key_id }}
         aws configure set aws_secret_access_key ${{ inputs.aws_secret_access_key }}
-        aws configure set region eu=north-1
+        aws configure set region us-east-1
         
     - name: Fetch GitHub Runner Token
       id: get-token
