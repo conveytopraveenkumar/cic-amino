@@ -71,6 +71,8 @@ runs:
             --security-group-ids sg-04b81fc613de74b2a \
             --subnet-id $SUBNET_ID \
             --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$INSTANCE_NAME}]" \
+            --block-device-mappings '[{"DeviceName": "/dev/sda1", "Ebs": {"VolumeSize": 500, "DeleteOnTermination": true}}]' \
+            --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$INSTANCE_NAME}]" \
             --query "Instances[0].InstanceId" --output text)
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
 
