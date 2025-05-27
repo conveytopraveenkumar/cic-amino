@@ -22,6 +22,12 @@ inputs:
   self_hosted_pat:
     required: true
     type: string
+   aws_access_key_id:
+    required: true
+    description: AWS Access Key ID
+  aws_secret_access_key:
+    required: true
+    description: AWS Secret Access Key
 outputs:
   instance_ip:
     description: Private IP of the launched instance
@@ -33,11 +39,12 @@ runs:
   using: "composite"
   steps:
     - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v3
-      with:
-        role-to-assume: arn:aws:iam::482037961672:role/GithubDeploymentRole
-        aws-region: eu-north-1
-
+      shell: bash
+      run: |
+        aws configure set aws_access_key_id ${{ inputs.aws_access_key_id }}
+        aws configure set aws_secret_access_key ${{ inputs.aws_secret_access_key }}
+        aws configure set region us-east-1
+        
     - name: Fetch GitHub Runner Token
       id: get-token
       run: |
