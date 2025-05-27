@@ -1,0 +1,68 @@
+name: AMINO CICD WORKFLOW
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  packages: write
+
+
+jobs:
+  environment_setup:
+    runs-on: ubuntu-latest
+    outputs:
+      instance_ip: ${{ steps.env-setup.outputs.instance_ip }}
+      instance_id: ${{ steps.env-setup.outputs.instance_id }}
+      runner_name: ${{ steps.env-setup.outputs.runner_name }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
+      - name: Install yq (YAML Processor)
+        run: |
+          sudo apt update && sudo apt install -y yq
+
+      - name: Load Variables from YAML
+        run: |
+          echo "PROJECT_NAME=$(yq '.project_name' variables.yml)" >> $GITHUB_ENV
+          echo "BUILD_TYPE=$(yq '.build_type' variables.yml)" >> $GITHUB_ENV
+          echo "TESTING=$(yq '.testing' variables.yml)" >> $GITHUB_ENV
+          echo "MANIFEST_URL=$(yq '.manifest_url' variables.yml)" >> $GITHUB_ENV
+          echo "BRANCH=$(yq '.branch' variables.yml)" >> $GITHUB_ENV
+          echo "BUILD_COMMANDS=$(yq '.build_commands' variables.yml)" >> $GITHUB_ENV
+
+      - name: Use Composite Action for Setup
+        id: env-setup
+        uses: ./.github/actions/amino-composite-action
+        with:
+          project_name: "${{ env.PROJECT_NAME }}"
+          build_type: "${{ env.BUILD_TYPE }}"
+          manifest_url: "${{ env.MANIFEST_URL }}"
+          branch: "${{ env.BRANCH }}"
+          build_commands: "${{ env.BUILD_COMMANDS }}"
+
+  compilation_on_runner:
+    needs: environment_setup
+    runs-on: [self-hosted, aws, ec2, linux, aosp-runner, oidc]
+    permissions:
+       id-token: write
+       packages: write
+    steps:
+      - name: Debug Runner Name
+        run: |
+          echo "Loaded Runner Name: ${{ needs.environment_setup.outputs.runner_name }}"
+      - name: Use Compilation Action
+        uses: ./.github/actions/amino-compilation-action
+        with:
+          project_name: "${{ env.PROJECT_NAME }}"
+          build_type: "${{ env.BUILD_TYPE }}"
+          manifest_url: "${{ env.MANIFEST_URL }}"
+          branch: "${{ env.BRANCH }}"
+          build_commands: "${{ env.BUILD_COMMANDS }}"
+          runner_name: "${{ needs.environment_setup.outputs.runner_name }}"
+          
