@@ -49,6 +49,9 @@ jobs:
           branch: "${{ env.BRANCH }}"
           build_commands: "${{ env.BUILD_COMMANDS }}"
           self_hosted_pat: ${{ secrets.SELF_HOSTED_PAT }}
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
 
   compilation_on_runner:
     needs: environment_setup
@@ -69,4 +72,7 @@ jobs:
           branch: "${{ env.BRANCH }}"
           build_commands: "${{ env.BUILD_COMMANDS }}"
           runner_name: "${{ needs.environment_setup.outputs.runner_name }}"
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
           
