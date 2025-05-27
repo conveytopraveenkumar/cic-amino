@@ -109,6 +109,7 @@ runs:
             --subnet-id $SUBNET_ID \
             --key-name new-key \
             --associate-public-ip-address \
+            --user-data file://user-data.sh \
             --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$RUNNER_NAME}]" \
             --query "Instances[0].InstanceId" --output text)
           INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
