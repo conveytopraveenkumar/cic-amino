@@ -70,33 +70,40 @@ runs:
 
     - name: Prepare User Data Script
       run: |
-       cat <<EOF > user-data.sh
-          #!/bin/bash
-          sudo apt update && sudo apt install -y unzip git curl jq awscli
-          mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner
-          sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
-          sudo chmod -R 755 /home/ubuntu/actions-runner
-          if [ -f /home/ubuntu/actions-runner/.env ]; then sudo chmod 644 /home/ubuntu/actions-runner/.env; fi
-          if [ -f /home/ubuntu/actions-runner/.path ]; then sudo chmod 644 /home/ubuntu/actions-runner/.path; fi
-          curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
-          tar xzf ./actions-runner-linux-x64.tar.gz
-          sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
-      
-          # Read the stored token dynamically
-          RUNNER_TOKEN="${{ env.RUNNER_TOKEN }}"
-          echo "$RUNNER_TOKEN"
-      
-          sudo chmod +x /home/ubuntu/actions-runner/config.sh
-          sudo -u ubuntu ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token "\$RUNNER_TOKEN" \
-          --name "self-hosted-runner-\$(date +%Y%m%d%H%M%S)" --labels aws,ec2,linux,aosp-runner,android-build,oidc \
-          --work /home/ubuntu/runner_work --runnergroup Default | tee -a /home/ubuntu/actions-runner/github-runner-setup.log
-      
-          sudo chmod +x /home/ubuntu/actions-runner/run.sh
-          sudo chown ubuntu:ubuntu /home/ubuntu/actions-runner/run.sh
-          sudo -u ubuntu nohup ./run.sh > runner.log 2>&1 &
-          EOF
-      
-          chmod +x user-data.sh
+        cat <<EOF > user-data.sh
+        #!/bin/bash
+        sudo apt update && sudo apt install -y unzip git curl jq awscli
+        
+        # Set up the GitHub Actions runner
+        mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner
+        sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
+        sudo chmod -R 755 /home/ubuntu/actions-runner
+        
+        if [ -f /home/ubuntu/actions-runner/.env ]; then sudo chmod 644 /home/ubuntu/actions-runner/.env; fi
+        if [ -f /home/ubuntu/actions-runner/.path ]; then sudo chmod 644 /home/ubuntu/actions-runner/.path; fi
+    
+        # Download and configure the GitHub Actions runner
+        curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
+        tar xzf ./actions-runner-linux-x64.tar.gz
+        sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
+    
+        # Read the stored token dynamically
+        RUNNER_TOKEN="${{ env.RUNNER_TOKEN }}"
+        echo "Runner Token: $RUNNER_TOKEN"
+    
+        sudo chmod +x /home/ubuntu/actions-runner/config.sh
+        sudo -u ubuntu ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token "$RUNNER_TOKEN" \
+        --name "self-hosted-runner-$(date +%Y%m%d%H%M%S)" --labels aws,ec2,linux,aosp-runner,android-build,oidc \
+        --work /home/ubuntu/runner_work --runnergroup Default | tee -a /home/ubuntu/actions-runner/github-runner-setup.log
+    
+        sudo chmod +x /home/ubuntu/actions-runner/run.sh
+        sudo chown ubuntu:ubuntu /home/ubuntu/actions-runner/run.sh
+        sudo -u ubuntu nohup ./run.sh > runner.log 2>&1 &
+        EOF
+    
+        chmod +x user-data.sh
+      shell: bash
+
       shell: bash
 
     - name: Launch EC2 Instance
