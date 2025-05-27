@@ -74,7 +74,8 @@ jobs:
           echo "TESTING=$(yq '.testing' .github/variables.yml)" >> $GITHUB_ENV
           echo "MANIFEST_URL=$(yq '.manifest_url' .github/variables.yml)" >> $GITHUB_ENV
           echo "BRANCH=$(yq '.branch' .github/variables.yml)" >> $GITHUB_ENV
-          echo "BUILD_COMMANDS=$(yq '.build_commands' .github/variables.yml)" >> $GITHUB_ENV
+          echo "BUILD_COMMANDS=$(yq '.build_commands' .github/variables.yml | sed ':a;N;$!ba;s/\n/ /g')" >> $GITHUB_ENV
+
       - name: Use Compilation Action
         uses: ./.github/actions/amino-compilation-action
         with:
