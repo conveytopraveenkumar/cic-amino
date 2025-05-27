@@ -1,0 +1,11 @@
+# variables.yml - Configuration for Amino CICD Workflow
+
+project_name: Amino
+build_type: userdebug
+testing: true
+manifest_url: https://android.googlesource.com/platform/manifest
+branch: refs/tags/android-platform-14.0.0_r19
+build_commands: |
+  source build/envsetup.sh
+  lunch aosp_cf_x86_64_tv-userdebug
+  make dist -j$(nproc)
