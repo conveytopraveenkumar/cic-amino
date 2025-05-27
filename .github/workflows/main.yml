@@ -65,6 +65,14 @@ jobs:
       - name: Debug Runner Name
         run: |
           echo "Loaded Runner Name: ${{ needs.environment_setup.outputs.runner_name }}"
+      - name: Load Variables from YAML
+        run: |
+          echo "PROJECT_NAME=$(yq '.project_name' .github/variables.yml)" >> $GITHUB_ENV
+          echo "BUILD_TYPE=$(yq '.build_type' .github/variables.yml)" >> $GITHUB_ENV
+          echo "TESTING=$(yq '.testing' .github/variables.yml)" >> $GITHUB_ENV
+          echo "MANIFEST_URL=$(yq '.manifest_url' .github/variables.yml)" >> $GITHUB_ENV
+          echo "BRANCH=$(yq '.branch' .github/variables.yml)" >> $GITHUB_ENV
+          echo "BUILD_COMMANDS=$(yq '.build_commands' .github/variables.yml)" >> $GITHUB_ENV
       - name: Use Compilation Action
         uses: ./.github/actions/amino-compilation-action
         with:
