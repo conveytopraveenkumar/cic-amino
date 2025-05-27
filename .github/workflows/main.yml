@@ -66,7 +66,7 @@ jobs:
           echo "Loaded Runner Name: ${{ needs.environment_setup.outputs.runner_name }}"
       - name: Install yq (YAML Processor)
         run: |
-          sudo apt update && sudo snap install -y yq
+          sudo apt update && sudo snap install yq
       - name: Load Variables from YAML
         run: |
           echo "PROJECT_NAME=$(yq '.project_name' .github/variables.yml)" >> $GITHUB_ENV
