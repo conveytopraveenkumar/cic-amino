@@ -116,4 +116,4 @@ runs:
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
           echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
           echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
-       shell: bash
+      shell: bash
