@@ -3,7 +3,7 @@ name: AMINO CICD WORKFLOW
 on:
   push:
     branches:
-      - master
+      - mastere
   workflow_dispatch:
 
 permissions:
@@ -29,12 +29,12 @@ jobs:
 
       - name: Load Variables from YAML
         run: |
-          echo "PROJECT_NAME=$(yq '.project_name' variables.yml)" >> $GITHUB_ENV
-          echo "BUILD_TYPE=$(yq '.build_type' variables.yml)" >> $GITHUB_ENV
-          echo "TESTING=$(yq '.testing' variables.yml)" >> $GITHUB_ENV
-          echo "MANIFEST_URL=$(yq '.manifest_url' variables.yml)" >> $GITHUB_ENV
-          echo "BRANCH=$(yq '.branch' variables.yml)" >> $GITHUB_ENV
-          echo "BUILD_COMMANDS=$(yq '.build_commands' variables.yml)" >> $GITHUB_ENV
+          echo "PROJECT_NAME=$(yq '.project_name' .github/variables.yml)" >> $GITHUB_ENV
+          echo "BUILD_TYPE=$(yq '.build_type' .github/variables.yml)" >> $GITHUB_ENV
+          echo "TESTING=$(yq '.testing' .github/variables.yml)" >> $GITHUB_ENV
+          echo "MANIFEST_URL=$(yq '.manifest_url' .github/variables.yml)" >> $GITHUB_ENV
+          echo "BRANCH=$(yq '.branch' .github/variables.yml)" >> $GITHUB_ENV
+          echo "BUILD_COMMANDS=$(yq '.build_commands' .github/variables.yml)" >> $GITHUB_ENV
 
       - name: Use Composite Action for Setup
         id: env-setup
