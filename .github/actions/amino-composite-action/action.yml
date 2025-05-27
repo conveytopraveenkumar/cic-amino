@@ -16,6 +16,9 @@ inputs:
   build_commands:
     description: Commands for compilation
     required: true
+  branch:
+    description: Commands for compilation
+    required: true
   self_hosted_pat:
     required: true
     type: string
