@@ -60,6 +60,8 @@ jobs:
        id-token: write
        packages: write
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
       - name: Debug Runner Name
         run: |
           echo "Loaded Runner Name: ${{ needs.environment_setup.outputs.runner_name }}"
