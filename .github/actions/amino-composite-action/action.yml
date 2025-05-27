@@ -29,11 +29,6 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Install Dependencies
-      run: |
-        sudo apt update && sudo apt install -y unzip git curl jq awscli yq
-      shell: bash
-
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v3
       with:
