@@ -3,7 +3,7 @@ name: AMINO CICD WORKFLOW
 on:
   push:
     branches:
-      - mastere
+      - master
   workflow_dispatch:
 
 permissions:
