@@ -16,6 +16,9 @@ inputs:
   build_commands:
     description: Commands for compilation
     required: true
+  self_hosted_pat:
+    required: true
+    type: string
 outputs:
   instance_ip:
     description: Private IP of the launched instance
@@ -40,7 +43,7 @@ runs:
     - name: Fetch GitHub Runner Token
       id: get-token
       run: |
-        RUNNER_TOKEN=$(curl -X POST -H "Authorization: Bearer ${{ secrets.SELF_HOSTED_PAT }}" \
+        RUNNER_TOKEN=$(curl -X POST -H "Authorization: Bearer ${{ inputs.self_hosted_pat }}" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/aminotv/android-cicd/actions/runners/registration-token | jq -r '.token')
 
