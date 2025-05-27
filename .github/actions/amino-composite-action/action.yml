@@ -50,7 +50,7 @@ runs:
       run: |
         RUNNER_TOKEN=$(curl -X POST -H "Authorization: Bearer ${{ inputs.self_hosted_pat }}" \
             -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/aminotv/android-cicd/actions/runners/registration-token | jq -r '.token')
+            https://api.github.com/repos/conveytopraveenkumar/cic-amino/actions/runners/registration-token | jq -r '.token')
 
         if [[ -z "$RUNNER_TOKEN" || "$RUNNER_TOKEN" == "null" ]]; then
             echo "Error: Runner token not retrieved!" | tee -a github-runner-setup.log
@@ -70,36 +70,50 @@ runs:
 
     - name: Prepare User Data Script
       run: |
-        cat <<EOF > user-data.sh
-        #!/bin/bash
-        sudo apt update && sudo apt install -y unzip git curl jq awscli yq
-        mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner
-        RUNNER_TOKEN="${{ env.RUNNER_TOKEN }}"
-        RUNNER_NAME="${{ env.RUNNER_NAME }}"
-        curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
-        tar xzf ./actions-runner-linux-x64.tar.gz
-        ./config.sh --url https://github.com/aminotv/android-cicd --token "\$RUNNER_TOKEN" --name "\$RUNNER_NAME"
-        nohup ./run.sh > runner.log 2>&1 &
-        EOF
-        chmod +x user-data.sh
+       cat <<EOF > user-data.sh
+          #!/bin/bash
+          sudo apt update && sudo apt install -y unzip git curl jq awscli
+          mkdir -p /home/ubuntu/actions-runner && cd /home/ubuntu/actions-runner
+          sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
+          sudo chmod -R 755 /home/ubuntu/actions-runner
+          if [ -f /home/ubuntu/actions-runner/.env ]; then sudo chmod 644 /home/ubuntu/actions-runner/.env; fi
+          if [ -f /home/ubuntu/actions-runner/.path ]; then sudo chmod 644 /home/ubuntu/actions-runner/.path; fi
+          curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-linux-x64-2.323.0.tar.gz
+          tar xzf ./actions-runner-linux-x64.tar.gz
+          sudo chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
+      
+          # Read the stored token dynamically
+          RUNNER_TOKEN="${{ env.RUNNER_TOKEN }}"
+          echo "$RUNNER_TOKEN"
+      
+          sudo chmod +x /home/ubuntu/actions-runner/config.sh
+          sudo -u ubuntu ./config.sh --url https://github.com/conveytopraveenkumar/cic-amino --token "\$RUNNER_TOKEN" \
+          --name "self-hosted-runner-\$(date +%Y%m%d%H%M%S)" --labels aws,ec2,linux,aosp-runner,android-build,oidc \
+          --work /home/ubuntu/runner_work --runnergroup Default | tee -a /home/ubuntu/actions-runner/github-runner-setup.log
+      
+          sudo chmod +x /home/ubuntu/actions-runner/run.sh
+          sudo chown ubuntu:ubuntu /home/ubuntu/actions-runner/run.sh
+          sudo -u ubuntu nohup ./run.sh > runner.log 2>&1 &
+          EOF
+      
+          chmod +x user-data.sh
       shell: bash
 
     - name: Launch EC2 Instance
       run: |
-        UBUNTU_AMI_ID=$(aws ec2 describe-images --owners 099720109477 \
-          --filters "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*" \
-          --query 'Images | sort_by(@, &CreationDate)[-1].ImageId' --output text)
-        INSTANCE_ID=$(aws ec2 run-instances --image-id "$UBUNTU_AMI_ID" --count 1 --instance-type t3.micro \
-          --key-name praveenkeyAWS --security-group-ids sg-0b717514e2fcd22ce \
-          --subnet-id $(aws ec2 describe-subnets --query 'Subnets[0].SubnetId' --output text) \
-          --iam-instance-profile Arn=arn:aws:iam::482037961672:instance-profile/GithubDeploymentRole \
-          --user-data file://user-data.sh \
-          --query "Instances[0].InstanceId" --output text)
-
-        INSTANCE_IP=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query "Reservations[0].Instances[0].PrivateIpAddress" --output text)
-
-        echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
-        echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
-        echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
-        echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
-      shell: bash
+          SUBNET_ID=$(aws ec2 describe-subnets --query 'Subnets[0].SubnetId' --output text)
+          INSTANCE_ID=$(aws ec2 run-instances \
+            --image-id ami-0f9de6e2d2f067fca \
+            --instance-type t3.micro \
+            --security-group-ids sg-04b81fc613de74b2a \
+            --subnet-id $SUBNET_ID \
+            --key-name new-key \
+            --associate-public-ip-address \
+            --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$RUNNER_NAME}]" \
+            --query "Instances[0].InstanceId" --output text)
+          INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+          echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
+          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+          echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+       shell: bash
