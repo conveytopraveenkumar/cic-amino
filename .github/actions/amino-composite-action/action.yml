@@ -35,6 +35,7 @@ outputs:
     description: ID of the launched instance
   runner_name:
     description: Name of the self-hosted runner
+    value: ${{ steps.env-setup.outputs.runner_name }}
 runs:
   using: "composite"
   steps:
