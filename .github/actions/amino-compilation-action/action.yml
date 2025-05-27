@@ -19,6 +19,15 @@ inputs:
   runner_name:
     description: Self-hosted runner name
     required: true
+  self_hosted_pat:
+   required: true
+   type: string
+  aws_access_key_id:
+   required: true
+   description: AWS Access Key ID
+  aws_secret_access_key:
+   required: true
+   description: AWS Secret Access Key
 outputs:
   instance_ip:
     description: Private IP of the launched instance
@@ -29,12 +38,13 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Configure AWS Credentials via OIDC
-      uses: aws-actions/configure-aws-credentials@v3
-      with:
-        role-to-assume: arn:aws:iam::482037961672:role/GithubDeploymentRole
-        aws-region: eu-north-1
-
+    - name: Configure AWS Credential  
+      run: |
+        aws configure set aws_access_key_id ${{ inputs.aws_access_key_id }}
+        aws configure set aws_secret_access_key ${{ inputs.aws_secret_access_key }}
+        aws configure set region us-east-1
+      shell: bash
+  
     - name: Validate Inputs
       run: |
         if [[ -z "${{ inputs.project_name }}" || -z "${{ inputs.build_type }}" || -z "${{ inputs.manifest_url }}"  || -z "${{ inputs.branch }}" || -z "${{ inputs.build_commands }}" ]]; then
@@ -47,18 +57,15 @@ runs:
       id: launch-instance
       run: |
         INSTANCE_NAME="AOSP-Build-Instance-$(date +%Y%m%d%H%M%S)"
-        UBUNTU_AMI_ID=$(aws ec2 describe-images --owners 099720109477 \
-          --filters "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*" \
-          --query 'Images | sort_by(@, &CreationDate)[-1].ImageId' --output text)
-        SUBNET_ID=$(aws ec2 describe-subnets --query 'Subnets[0].SubnetId' --output text)
-
-        INSTANCE_ID=$(aws ec2 run-instances --image-id "$UBUNTU_AMI_ID" --count 1 --instance-type c5.4xlarge \
-          --key-name praveenkeyAWS --security-group-ids sg-0374a1b47b874983d \
-          --subnet-id "$SUBNET_ID" \
-          --iam-instance-profile Arn=arn:aws:iam::482037961672:instance-profile/GithubDeploymentRole \
-          --block-device-mappings '[{"DeviceName": "/dev/sda1", "Ebs": {"VolumeSize": 500, "DeleteOnTermination": true}}]' \
-          --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$INSTANCE_NAME}]" \
-          --query "Instances[0].InstanceId" --output text)
+          SUBNET_ID=$(aws ec2 describe-subnets --query 'Subnets[0].SubnetId' --output text)
+          INSTANCE_ID=$(aws ec2 run-instances --image-id ami-0f9de6e2d2f067fca \
+            --count 1 --instance-type t3.micro \
+            --key-name new-key \
+            --security-group-ids sg-04b81fc613de74b2a \
+            --subnet-id $SUBNET_ID \
+            --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$INSTANCE_NAME}]" \
+            --query "Instances[0].InstanceId" --output text)
+          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
 
         INSTANCE_IP=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query "Reservations[0].Instances[0].PrivateIpAddress" --output text)
 
@@ -195,6 +202,7 @@ runs:
             done
           "
         EOF
+      shell: bash
 
     - name: Set Up Environment & Build AOSP
       run: |
@@ -218,10 +226,12 @@ runs:
             fi
           "
         EOF
+      shell: bash
 
     - name: Set Build Number
       run: |
         echo "BUILD_NUMBER=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
+      shell: bash
 
     - name: Upload Build Files to S3 with Build Number
       run: |
@@ -246,3 +256,4 @@ runs:
             echo 'Build files uploaded successfully!'
           "
         EOF
+      shell: bash
