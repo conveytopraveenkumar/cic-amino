@@ -53,6 +53,7 @@ runs:
       shell: bash
 
     - name: Generate Runner Name
+      id: env-setup
       run: |
         RUNNER_NAME="self-hosted-runner-$(date +%Y%m%d%H%M%S)"
         echo "RUNNER_NAME=$RUNNER_NAME" >> $GITHUB_ENV
