@@ -15,6 +15,9 @@ permissions:
 jobs:
   environment_setup:
     runs-on: ubuntu-latest
+    permissions:
+       id-token: write
+       packages: write
     outputs:
       instance_ip: ${{ steps.env-setup.outputs.instance_ip }}
       instance_id: ${{ steps.env-setup.outputs.instance_id }}
