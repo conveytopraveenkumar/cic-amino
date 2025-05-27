@@ -54,7 +54,7 @@ runs:
  
     - name: Validate Inputs
       run: |
-        if [[ -z "${{ inputs.project_name }}" || -z "${{ inputs.build_type }}" || -z "${{ inputs.manifest_url }}"  || -z "${{ inputs.branch }}" || -z "${{ inputs.build_commands }}" ]]; then
+        if [[ -z "${{ inputs.project_name }}" || -z "${{ inputs.build_type }}" || -z "${{ inputs.manifest_url }}"  || -z "${{ inputs.branch }}" || -z ${{ inputs.build_commands }} ]]; then
           echo "Error: Required inputs are missing."
           exit 1
         fi
