@@ -1,16 +1,30 @@
-name: AMINO CICD WORKFLOW
-
+name: AMINO BUILD AND DEPLY 
 on:
   push:
     branches:
       - master
   workflow_dispatch:
+    inputs:
+      project_name:
+        description: 'Project name'
+        required: true
+      build_type:
+        description: 'Build type (e.g., userdebug)'
+        required: true
+      manifest_url:
+        description: 'Manifest repository URL'
+        required: true
+      branch:
+        description: 'Branch name'
+        required: true
+      build_commands:
+        description: 'Build commands'
+        required: true
 
 permissions:
   id-token: write
   contents: read
   packages: write
-
 
 jobs:
   environment_setup:
@@ -31,12 +45,11 @@ jobs:
           sudo apt update && sudo apt install -y yq
       - name: Load Variables from YAML
         run: |
-          echo "PROJECT_NAME=$(yq '.project_name' .github/variables.yml)" >> $GITHUB_ENV
-          echo "BUILD_TYPE=$(yq '.build_type' .github/variables.yml)" >> $GITHUB_ENV
-          echo "TESTING=$(yq '.testing' .github/variables.yml)" >> $GITHUB_ENV
-          echo "MANIFEST_URL=$(yq '.manifest_url' .github/variables.yml)" >> $GITHUB_ENV
-          echo "BRANCH=$(yq '.branch' .github/variables.yml)" >> $GITHUB_ENV
-          echo "BUILD_COMMANDS=$(yq '.build_commands' .github/variables.yml)" >> $GITHUB_ENV
+          echo "PROJECT_NAME=${{ github.event.inputs.project_name }}" >> $GITHUB_ENV
+          echo "BUILD_TYPE=${{ github.event.inputs.build_type }}" >> $GITHUB_ENV
+          echo "MANIFEST_URL=${{ github.event.inputs.manifest_url }}" >> $GITHUB_ENV
+          echo "BRANCH=${{ github.event.inputs.branch }}" >> $GITHUB_ENV
+          echo "BUILD_COMMANDS=${{ github.event.inputs.build_commands }}" >> $GITHUB_ENV
 
       - name: Use Composite Action for Setup
         id: env-setup
@@ -50,7 +63,6 @@ jobs:
           self_hosted_pat: ${{ secrets.SELF_HOSTED_PAT }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
 
   compilation_on_runner:
     needs: environment_setup
@@ -69,12 +81,11 @@ jobs:
           sudo apt update && sudo snap install yq
       - name: Load Variables from YAML
         run: |
-          echo "PROJECT_NAME=$(yq '.project_name' .github/variables.yml)" >> $GITHUB_ENV
-          echo "BUILD_TYPE=$(yq '.build_type' .github/variables.yml)" >> $GITHUB_ENV
-          echo "TESTING=$(yq '.testing' .github/variables.yml)" >> $GITHUB_ENV
-          echo "MANIFEST_URL=$(yq '.manifest_url' .github/variables.yml)" >> $GITHUB_ENV
-          echo "BRANCH=$(yq '.branch' .github/variables.yml)" >> $GITHUB_ENV
-          echo "BUILD_COMMANDS=$(yq '.build_commands' .github/variables.yml | sed ':a;N;$!ba;s/\n/ /g')" >> $GITHUB_ENV
+          echo "PROJECT_NAME=${{ github.event.inputs.project_name }}" >> $GITHUB_ENV
+          echo "BUILD_TYPE=${{ github.event.inputs.build_type }}" >> $GITHUB_ENV
+          echo "MANIFEST_URL=${{ github.event.inputs.manifest_url }}" >> $GITHUB_ENV
+          echo "BRANCH=${{ github.event.inputs.branch }}" >> $GITHUB_ENV
+          echo "BUILD_COMMANDS=${{ github.event.inputs.build_commands }}" >> $GITHUB_ENV
 
       - name: Use Compilation Action
         uses: ./.github/actions/amino-compilation-action
@@ -89,5 +100,3 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           githubtoken: ${{ secrets.GITHUB_TOKEN }}
           awssshkey: ${{ secrets.AWS_SSH_PRIVATE_KEY }}
-
-          
